@@ -122,9 +122,10 @@ type Card struct {
 }
 
 func (c *Card) Print() {
-	fmt.Println(c.Name + " " + string(c.Symbol))
+	fmt.Println(c.Name)
 }
 
+// todo create a new card from name only
 func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (Card, error) {
 	// Fix the condition for hearts and diamonds
 	if (suit == HEART || suit == DIAMOND) && color != RED {
@@ -136,7 +137,7 @@ func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, col
 		return Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
-	fullCardName := strings.ToLower(name + " of " + string(suit) + "s")
+	fullCardName := strings.ToLower(name + " of " + string(suit) + "s" + " " + string(symbol))
 
 	newCard := Card{
 		Name:   fullCardName,
@@ -283,14 +284,21 @@ func (g *GameDeck) updateSize() {
 	g.Size = len(g.Cards)
 }
 
-func (g *GameDeck) Contains(card Card) bool {
+// func binary_search
 
-	for i := 0; i < len(g.Cards); i++ {
-		if g.Cards[i].Name == card.Name {
-			return true
+func (g *GameDeck) Contains(card Card, option string) bool {
+	switch option {
+	case "binary_search":
+		fmt.Println("binary_search not implemented")
+		return false
+	default:
+		for i := 0; i < len(g.Cards); i++ {
+			if g.Cards[i].Name == card.Name {
+				return true
+			}
 		}
+		return false
 	}
-	return false
 }
 
 func (g *GameDeck) DrawCard() Card {
@@ -300,23 +308,41 @@ func (g *GameDeck) DrawCard() Card {
 	return card
 }
 
+func (g *GameDeck) RemoveCard(card Card, option string) bool {
+	switch option {
+	case "binary_search":
+		panic("binary_search not implemented")
+	default:
+		for i := 0; i < len(g.Cards); i++ {
+			if g.Cards[i].Name == card.Name {
+				g.Cards = append(g.Cards[:i], g.Cards[i+1:]...)
+				g.updateSize()
+				return true
+			}
+		}
+		fmt.Println("Card not found in the deck")
+		return false
+	}
+}
+
 func main() {
 	gameDeck := NewGameDeck(UNIQUE_SHUFFLE_SEED)
 	gameDeck.PrintSize()
 	card := gameDeck.DrawCard()
-
-	gameDeck.PrintSize()
 	card.Print()
+	gameDeck.PrintSize()
 
-	// fmt.Println(gameDeck.Size)
-	// for i := range gameDeck.Cards {
-	// fmt.Println(gameDeck.Cards[i].Name + " " + string(gameDeck.Cards[i].Symbol))
-	// }
+	card2 := gameDeck.DrawCard()
+	card2.Print()
+	gameDeck.PrintSize()
 
-	// newCard, _ := NewCard(TWO, SPADE, TWO_VALUE, TWO_SPADE_SYMBOL, BLACK)
-	// fmt.Println(newCard.Name)
-	// fmt.Println(newCard.Suit)
-	// fmt.Println(newCard.Value)
-	// fmt.Println(newCard.Symbol)
-	// fmt.Println(newCard.Color)
+	gameDeck.RemoveCard(card2, "")
+	gameDeck.PrintSize()
+
+	if !gameDeck.Contains(card2, "") {
+		fmt.Println("Deck does not contain card")
+	} else {
+		fmt.Println("Deck contains card.")
+	}
+
 }
