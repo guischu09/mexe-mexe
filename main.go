@@ -122,13 +122,14 @@ type Card struct {
 }
 
 func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (Card, error) {
-
-	if suit == HEART || suit == DIAMOND && color != RED {
-		return Card{}, errors.New("Cannot create cart with suit " + string(suit) + " and color " + string(color))
+	// Fix the condition for hearts and diamonds
+	if (suit == HEART || suit == DIAMOND) && color != RED {
+		return Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
-	if suit == CLUB || suit == CLUB && color != BLACK {
-		return Card{}, errors.New("Cannot create cart with suit " + string(suit) + " and color " + string(color))
+	// Fix the condition for clubs and spades
+	if (suit == CLUB || suit == SPADE) && color != BLACK {
+		return Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
 	fullCardName := strings.ToLower(name + " of " + string(suit) + "s")
@@ -151,7 +152,6 @@ type GameDeck struct {
 }
 
 func NewGameDeck(seed uint64) GameDeck {
-
 	var cards []Card
 
 	twoOfSpades, _ := NewCard(TWO, SPADE, TWO_VALUE, TWO_SPADE_SYMBOL, BLACK)
@@ -234,7 +234,8 @@ func NewGameDeck(seed uint64) GameDeck {
 	if seed == UNIQUE_SHUFFLE_SEED {
 		seedTime := uint64(time.Now().UnixNano())
 
-		pcgSource := rand.NewPCG(seed, seed)
+		// Use seedTime for PCG initialization, not seed
+		pcgSource := rand.NewPCG(seedTime, seedTime)
 		rng := rand.New(pcgSource)
 
 		rng.Shuffle(len(cards), func(i, j int) {
@@ -264,13 +265,12 @@ func NewGameDeck(seed uint64) GameDeck {
 }
 
 func (g *GameDeck) print() {
-	for i := 0; i < g.Size; i++ {
+	for i := 0; i < len(g.Cards); i++ {
 		fmt.Println(g.Cards[i].Name + " " + string(g.Cards[i].Symbol))
 	}
 }
 
 func main() {
-
 	gameDeck := NewGameDeck(NO_SHUFFLE_SEED)
 	// gameDeck.print()
 
