@@ -121,6 +121,10 @@ type Card struct {
 	Color  CardColor
 }
 
+func (c *Card) Print() {
+	fmt.Println(c.Name + " " + string(c.Symbol))
+}
+
 func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (Card, error) {
 	// Fix the condition for hearts and diamonds
 	if (suit == HEART || suit == DIAMOND) && color != RED {
@@ -264,20 +268,50 @@ func NewGameDeck(seed uint64) GameDeck {
 	return gameDeck
 }
 
-func (g *GameDeck) print() {
+func (g *GameDeck) Print() {
 	for i := 0; i < len(g.Cards); i++ {
 		fmt.Println(g.Cards[i].Name + " " + string(g.Cards[i].Symbol))
 	}
+	fmt.Println("Size: ", g.Size)
+}
+
+func (g *GameDeck) PrintSize() {
+	fmt.Println("Size: ", g.Size)
+}
+
+func (g *GameDeck) updateSize() {
+	g.Size = len(g.Cards)
+}
+
+func (g *GameDeck) Contains(card Card) bool {
+
+	for i := 0; i < len(g.Cards); i++ {
+		if g.Cards[i].Name == card.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *GameDeck) DrawCard() Card {
+	card := g.Cards[0]
+	g.Cards = g.Cards[1:]
+	g.updateSize()
+	return card
 }
 
 func main() {
-	gameDeck := NewGameDeck(NO_SHUFFLE_SEED)
-	// gameDeck.print()
+	gameDeck := NewGameDeck(UNIQUE_SHUFFLE_SEED)
+	gameDeck.PrintSize()
+	card := gameDeck.DrawCard()
 
-	fmt.Println(gameDeck.Size)
-	for i := range gameDeck.Cards {
-		fmt.Println(gameDeck.Cards[i].Name + " " + string(gameDeck.Cards[i].Symbol))
-	}
+	gameDeck.PrintSize()
+	card.Print()
+
+	// fmt.Println(gameDeck.Size)
+	// for i := range gameDeck.Cards {
+	// fmt.Println(gameDeck.Cards[i].Name + " " + string(gameDeck.Cards[i].Symbol))
+	// }
 
 	// newCard, _ := NewCard(TWO, SPADE, TWO_VALUE, TWO_SPADE_SYMBOL, BLACK)
 	// fmt.Println(newCard.Name)
