@@ -1,3 +1,3 @@
-module axonai/mexe-mexe
+module mexemexe
 
 go 1.24.2
