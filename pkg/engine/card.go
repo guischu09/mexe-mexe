@@ -116,8 +116,16 @@ type Card struct {
 	Color  CardColor
 }
 
+func PrintCards(cards []Card) {
+	printHand := ""
+	for i := 0; i < len(cards); i++ {
+		printHand += string(cards[i].Symbol) + " "
+	}
+	fmt.Println(printHand)
+}
+
 func (c *Card) Print() {
-	fmt.Println(c.Name)
+	fmt.Println(c.Symbol)
 }
 
 // todo create a new card from name only

@@ -98,7 +98,6 @@ func NewGameDeck(seed uint64) GameDeck {
 	if seed == UNIQUE_SHUFFLE_SEED {
 		seedTime := uint64(time.Now().UnixNano())
 
-		// Use seedTime for PCG initialization, not seed
 		pcgSource := rand.NewPCG(seedTime, seedTime)
 		rng := rand.New(pcgSource)
 
@@ -143,21 +142,13 @@ func (g *GameDeck) updateSize() {
 	g.Size = len(g.Cards)
 }
 
-// func binary_search
-
-func (g *GameDeck) Contains(card Card, option string) bool {
-	switch option {
-	case "binary_search":
-		fmt.Println("binary_search not implemented")
-		return false
-	default:
-		for i := 0; i < len(g.Cards); i++ {
-			if g.Cards[i].Name == card.Name {
-				return true
-			}
+func (g *GameDeck) Contains(card Card) bool {
+	for i := 0; i < len(g.Cards); i++ {
+		if g.Cards[i].Name == card.Name {
+			return true
 		}
-		return false
 	}
+	return false
 }
 
 func (g *GameDeck) DrawCard() Card {
@@ -167,19 +158,14 @@ func (g *GameDeck) DrawCard() Card {
 	return card
 }
 
-func (g *GameDeck) RemoveCard(card Card, option string) bool {
-	switch option {
-	case "binary_search":
-		panic("binary_search not implemented")
-	default:
-		for i := 0; i < len(g.Cards); i++ {
-			if g.Cards[i].Name == card.Name {
-				g.Cards = append(g.Cards[:i], g.Cards[i+1:]...)
-				g.updateSize()
-				return true
-			}
+func (g *GameDeck) RemoveCard(card Card) bool {
+	for i := 0; i < len(g.Cards); i++ {
+		if g.Cards[i].Name == card.Name {
+			g.Cards = append(g.Cards[:i], g.Cards[i+1:]...)
+			g.updateSize()
+			return true
 		}
-		fmt.Println("Card not found in the deck")
-		return false
 	}
+	fmt.Println("Card not found in the deck")
+	return false
 }
