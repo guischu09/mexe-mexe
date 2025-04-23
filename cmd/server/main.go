@@ -1,12 +1,19 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
-	"mexemexe/pkg/engine"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 )
+
+const CAPACITY = 30
+const MAX_PLAYERS = 2
+
+var clients = make(map[*websocket.Conn]*Player)
+var serverGameRooms = make([]*GameRoom, 0, CAPACITY)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -17,113 +24,189 @@ type JoinServerMessage struct {
 	Username string `json:"username"`
 }
 
-type GameStartMessage struct {
-	Message string `json:"message"`
+type GameMessage struct {
+	Type    string `json:"type"`
+	Context string `json:"context"`
 }
 
-type Game struct {
+type MexeMexeGame struct {
 }
 
 type Room struct {
-	ID   uint64
+	ID   string
 	Game GameRoom
 }
 
 type GameRoom struct {
-	ID          uint64
-	Players     []*Client
-	Game        *engine.Game
+	Game        *MexeMexeGame
+	Players     []*Player
+	ID          string
+	NumPlayers  uint8
 	GameStarted bool
-}
-type Client struct {
-	ID        uint64
-	Username  string
-	Connected bool
-	Player    engine.Player
-	Room      *GameRoom
-	Conn      *websocket.Conn
+	RoomChannel chan string
 }
 
-func NewClient(username string, conn *websocket.Conn) *Client {
-	return &Client{
-		ID:        generateUniqueID(),
-		Username:  username,
-		Connected: true,
-		Conn:      conn,
+func (g *GameRoom) AddPlayer(player *Player) {
+	g.Players = append(g.Players, player)
+	g.NumPlayers = uint8(len(g.Players))
+	player.Room = g
+}
+
+func (g *GameRoom) IsFull() bool {
+	return g.NumPlayers >= 2
+}
+
+func (g *GameRoom) StartGame() {
+	g.GameStarted = true
+}
+
+func NewGameRoom() *GameRoom {
+	return &GameRoom{
+		Game:        nil,
+		Players:     make([]*Player, 0, MAX_PLAYERS),
+		ID:          generateUniqueID(),
+		NumPlayers:  0,
+		GameStarted: false,
+		RoomChannel: make(chan string),
 	}
 }
 
-func (c *Client) JoinRoom(room *GameRoom) bool {
-	if len(room.Players) >= 2 {
-		return false
-	}
-
-	// Add client to room
-	room.Players = append(room.Players, c)
-	c.Room = room
-
-	// Create player in game engine
-	c.Player = room.Game.AddPlayer(c.Username)
-
-	// Check if game can start now
-	if len(room.Players) == 2 && !room.GameStarted {
-		room.StartGame()
-	}
-
-	return true
+func (g *GameRoom) HasSpace() bool {
+	return g.NumPlayers < 2
 }
 
-func (room *GameRoom) StartGame() {
-	room.GameStarted = true
-	room.Game.Start()
+type Player struct {
+	ID          string
+	Username    string
+	Connected   bool
+	Room        *GameRoom
+	ChatChannel chan string
+	Conn        *websocket.Conn
+}
 
-	// Notify players
-	for _, client := range room.Players {
-		// Send game start message through WebSocket
-		gameStartMsg := struct {
-			Type string `json:"type"`
-			Data string `json:"data"`
-		}{
-			Type: "gameStart",
-			Data: "The game has started!",
-		}
-		client.Conn.WriteJSON(gameStartMsg)
+func generateUniqueID() string {
+	return "1234567890"
+}
+
+func NewPlayer(username string, conn *websocket.Conn) *Player {
+	return &Player{
+		ID:          generateUniqueID(),
+		Username:    username,
+		Connected:   true,
+		Room:        nil,
+		ChatChannel: make(chan string),
+		Conn:        conn,
 	}
 }
-
-func (c *Client) SetGameRoom(roomNumber uint64) {
-}
-
-func (c *Client) GetGameRoomStatus(gameRoom GameRoom) {
-}
-
-var clients = make(map[*websocket.Conn]*Client)
-var gameRooms = make(map[uint64]*GameRoom)
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Printf("error: %v", err)
 	}
 	defer ws.Close()
 
+	var msg JoinServerMessage
+	err = ws.ReadJSON(&msg)
+	if err != nil {
+		log.Printf("error: %v", err)
+		delete(clients, ws)
+	}
+	newPlayer := NewPlayer(msg.Username, ws)
+	clients[ws] = newPlayer
+	err = ws.WriteJSON("Welcome to mexe-mexe.com!")
+	if err != nil {
+		log.Printf("error writing to websocket: %v", err)
+		return
+	}
+
+	// Event loop
 	for {
-		var msg JoinServerMessage
-		err := ws.ReadJSON(&msg)
-
-		clients[ws] = NewClient(msg.Username)
-
+		var msg GameMessage
+		err = ws.ReadJSON(&msg)
 		if err != nil {
 			log.Printf("error: %v", err)
 			delete(clients, ws)
+			close(newPlayer.ChatChannel)
 			break
+		}
+		switch msg.Type {
+
+		case "chat":
+
+		case "start":
+			err = ws.WriteJSON("Searching for an available game room ...")
+			if err != nil {
+				log.Printf("error writing to websocket: %v", err)
+				return
+			}
+			room, err := searchAvailableGameRoom(2)
+			if err != nil {
+				err = ws.WriteJSON("Error finding game room: " + err.Error())
+				if err != nil {
+					log.Printf("error writing to websocket: %v", err)
+					return
+				}
+				continue
+			}
+
+			room.AddPlayer(newPlayer)
+
+			if room.IsFull() {
+				room.StartGame()
+				broadcastToRoom(room, "Game started!", "System")
+			}
+
+			err = ws.WriteJSON("Joined game room: " + room.ID)
+			if err != nil {
+				log.Printf("error writing to websocket: %v", err)
+				return
+			}
+
+			if len(room.Players) >= 2 {
+				room.GameStarted = true
+
+			}
+
+		case "quit":
+			fmt.Println("Not implemented")
+		}
+
+	}
+}
+
+func broadcastToRoom(room *GameRoom, message string, sender string) {
+	for _, player := range room.Players {
+		player.ChatChannel <- sender + ": " + message
+	}
+}
+
+func searchAvailableGameRoom(numPlayers uint8) (*GameRoom, error) {
+	for _, room := range serverGameRooms {
+		if room != nil && !room.GameStarted && len(room.Players) < int(numPlayers) {
+			log.Printf("Found available game room: %s", room.ID)
+			return room, nil
 		}
 	}
 
+	if len(serverGameRooms) >= CAPACITY {
+		return nil, errors.New("server at maximum capacity, cannot create new room")
+	}
+
+	log.Println("No available game rooms found. Creating a new game room.")
+	newRoom := NewGameRoom()
+	serverGameRooms = append(serverGameRooms, newRoom)
+	return newRoom, nil
 }
 
 func main() {
 
 	http.HandleFunc("/ws", handleConnections)
+
+	log.Println("HTTP server started on :8888")
+	err := http.ListenAndServe(":8888", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
 
 }

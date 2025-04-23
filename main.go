@@ -20,7 +20,7 @@ type Message struct {
 	Message  string `json:"message"`
 }
 
-func main() {
+func blah() {
 	fs := http.FileServer(http.Dir("."))
 	http.Handle("/", fs)
 
