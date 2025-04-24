@@ -106,6 +106,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer ws.Close()
 
+	log.Println("New connection established")
+
 	var msg JoinServerMessage
 	err = ws.ReadJSON(&msg)
 	if err != nil {
@@ -140,7 +142,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				log.Printf("error writing to websocket: %v", err)
 				return
 			}
-			room, err := searchAvailableGameRoom(2)
+			Nplayers := uint8(2)
+			room, err := searchAvailableGameRoom(Nplayers)
 			if err != nil {
 				err = ws.WriteJSON("Error finding game room: " + err.Error())
 				if err != nil {
@@ -152,15 +155,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 			room.AddPlayer(newPlayer)
 
-			if room.IsFull() {
-				room.StartGame()
-				broadcastToRoom(room, "Game started!", "System")
-			}
-
 			err = ws.WriteJSON("Joined game room: " + room.ID)
 			if err != nil {
 				log.Printf("error writing to websocket: %v", err)
 				return
+			}
+
+			if room.IsFull() {
+				room.StartGame()
+				broadcastToRoom(room, "Game started!", "System")
 			}
 
 			if len(room.Players) >= 2 {
