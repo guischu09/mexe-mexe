@@ -1,6 +1,6 @@
 package engine
 
 type Table struct {
-	playedCards []Card
+	PlayedCards []Card
 	Size        int
 }

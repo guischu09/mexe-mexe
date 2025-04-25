@@ -5,46 +5,15 @@ import (
 	"mexemexe/pkg/engine"
 )
 
-type GameConfig struct {
-	Seed        uint64
-	PlayersName []string
-	NumPlayers  uint8
-	NumCards    uint8
-}
-
-type Game struct {
-	Config  GameConfig
-	Deck    engine.GameDeck
-	Table   engine.Table
-	Players []engine.Player
-}
-
-func NewGame(config GameConfig) Game {
-
-	players := make([]engine.Player, config.NumPlayers)
-	deck := engine.NewGameDeck(config.Seed)
-
-	for i := 0; i < int(config.NumPlayers); i++ {
-		newHand := engine.NewHandFromDeck(&deck, config.NumCards)
-		players[i] = engine.NewPlayer(config.PlayersName[i], newHand, 0)
-	}
-
-	return Game{
-		Config:  config,
-		Deck:    deck,
-		Players: players,
-	}
-}
-
 func main() {
-	gameConfig := GameConfig{
+	gameConfig := engine.GameConfig{
 		Seed:        engine.UNIQUE_SHUFFLE_SEED,
 		PlayersName: []string{"Guilherme", "Michele"},
 		NumPlayers:  2,
 		NumCards:    11,
 	}
 
-	game := NewGame(gameConfig)
+	game := engine.NewGame(gameConfig)
 	game.Players[0].Print()
 	game.Players[0].PrintHand()
 
@@ -53,9 +22,9 @@ func main() {
 	fmt.Println("=================")
 
 	// Example 1: Valid Sequence Meld
-	twoOfDiamonds, _ := engine.NewCard(engine.TWO, engine.DIAMOND, engine.TWO_VALUE, engine.TWO_DIAMOND_SYMBOL, engine.RED)
-	threeOfDiamonds, _ := engine.NewCard(engine.THREE, engine.DIAMOND, engine.THREE_VALUE, engine.THREE_DIAMOND_SYMBOL, engine.RED)
-	fourOfDiamonds, _ := engine.NewCard(engine.FOUR, engine.DIAMOND, engine.FOUR_VALUE, engine.FOUR_DIAMOND_SYMBOL, engine.RED)
+	twoOfDiamonds := engine.TWO_OF_DIAMONDS
+	threeOfDiamonds := engine.THREE_OF_DIAMONDS
+	fourOfDiamonds := engine.FOUR_OF_DIAMONDS
 
 	sequenceMeldCards := []engine.Card{twoOfDiamonds, threeOfDiamonds, fourOfDiamonds}
 	fmt.Println("Testing sequence meld:")

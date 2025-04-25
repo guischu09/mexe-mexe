@@ -116,7 +116,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	newPlayer := NewPlayer(msg.Username, ws)
 	clients[ws] = newPlayer
-	err = ws.WriteJSON("Welcome to mexe-mexe.com!")
+	err = ws.WriteJSON("Welcome to mexe-mexe.com " + msg.Username + "!")
 	if err != nil {
 		log.Printf("error writing to websocket: %v", err)
 		return
