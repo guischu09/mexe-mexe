@@ -1,5 +1,7 @@
 package engine
 
+import "fmt"
+
 // Mexe-mexe rules:
 // Wins a round the player that has 0 cards on their hands first.
 // If the decks ends, the winner is the one with less points/cards on their hands.
@@ -54,9 +56,28 @@ func NewGame(config GameConfig) Game {
 	}
 }
 
-func (g *Game) Start() {
+func (g *Game) Start() bool {
 
-	for c := 0; c > g.Deck.Size; c-- {
-
+	for g.Deck.Size > 0 {
+		for i := range g.Players {
+			player := &g.Players[i]
+			success := player.PlayTurn()
+			if !success {
+				fmt.Println("Player " + player.Name + " quits!")
+				fmt.Println("Game Over!")
+				return false
+			}
+			if player.Hand.Size == 0 {
+				fmt.Println("Player " + player.Name + "wins!")
+				return true
+			}
+		}
 	}
+	fmt.Println("Deck is empty! Game over!")
+	g.ComputePoints()
+	return true
+}
+
+func (g *Game) ComputePoints() {
+	// TODO: Implement
 }

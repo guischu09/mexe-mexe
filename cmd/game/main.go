@@ -12,8 +12,10 @@ func main() {
 	}
 
 	game := engine.NewGame(gameConfig)
-	game.Players[0].Print()
-	game.Players[0].PrintHand()
+
+	game.Start()
+	// game.Players[0].Print()
+	// game.Players[0].PrintHand()
 
 	// game.Start()
 
