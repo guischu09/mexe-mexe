@@ -1,6 +1,9 @@
 package engine
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand/v2"
+)
 
 // Mexe-mexe rules:
 // Wins a round the player that has 0 cards on their hands first.
@@ -25,11 +28,14 @@ import "fmt"
 
 // quando houver a mesa, usuario podera selecionar a mão "ctrl + h" ou a mesa "ctrl + t"
 
+const INITIAL_POINTS uint32 = 0
+
 type GameConfig struct {
-	Seed        uint64
-	PlayersName []string
-	NumPlayers  uint8
-	NumCards    uint8
+	Seed              uint64
+	PlayersName       []string
+	NumPlayers        uint8
+	NumCards          uint8
+	RandomPlayerOrder bool
 }
 
 type Game struct {
@@ -46,7 +52,15 @@ func NewGame(config GameConfig) Game {
 
 	for i := 0; i < int(config.NumPlayers); i++ {
 		newHand := NewHandFromDeck(&deck, config.NumCards)
-		players[i] = NewPlayer(config.PlayersName[i], newHand, 0)
+		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
+	}
+
+	if config.RandomPlayerOrder {
+		pcgSource := rand.NewPCG(deck.Seed, deck.Seed)
+		rng := rand.New(pcgSource)
+		rng.Shuffle(len(players), func(i, j int) {
+			players[i], players[j] = players[j], players[i]
+		})
 	}
 
 	return Game{
@@ -58,26 +72,54 @@ func NewGame(config GameConfig) Game {
 
 func (g *Game) Start() bool {
 
+	fmt.Printf("Game started!\r\n")
+
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			player := &g.Players[i]
-			success := player.PlayTurn()
-			if !success {
-				fmt.Println("Player " + player.Name + " quits!")
-				fmt.Println("Game Over!")
+
+			g.Print(player)
+
+			availablePlay := player.PlayTurn(&g.Deck, &g.Table)
+
+			switch availablePlay {
+
+			case QUIT:
+				fmt.Printf("Player %s quits\r\n", player.Name)
+				fmt.Printf("Game Over!\r\n")
 				return false
+
+			case DRAW_CARD:
+				fmt.Printf("Player %s drawed a card\r\n", player.Name)
+
+			case DRAW_CARD_AND_PLAY_MELD:
+				fmt.Printf("Player %s drawed a card and played a meld\r\n", player.Name)
+
+			case PLAY_MELD:
+				fmt.Printf("Player %s played a meld\r\n", player.Name)
+
 			}
 			if player.Hand.Size == 0 {
-				fmt.Println("Player " + player.Name + "wins!")
+				fmt.Printf("Player %s wins!\r\n", player.Name)
 				return true
 			}
 		}
 	}
-	fmt.Println("Deck is empty! Game over!")
+	fmt.Printf("Deck is empty! Game over!\r\n")
 	g.ComputePoints()
 	return true
 }
 
 func (g *Game) ComputePoints() {
 	// TODO: Implement
+}
+
+func (g *Game) Close() {
+	fmt.Printf("Game closed!\r\n")
+}
+
+func (g *Game) Print(player *Player) {
+	fmt.Printf("%s's Hand:\r\n", player.Name)
+	player.Hand.Print()
+	fmt.Printf("Deck size: %d\r\n", g.Deck.Size)
 }

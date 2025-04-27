@@ -27,6 +27,11 @@ func (h *Hand) Print() {
 	fmt.Println(printHand)
 }
 
+func (h *Hand) AddCard(card Card) {
+	h.Cards = append(h.Cards, card)
+	h.updateSize()
+}
+
 func (h *Hand) DrawCard() Card {
 	card := h.Cards[0]
 	h.Cards = h.Cards[1:]
