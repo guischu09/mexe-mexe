@@ -6,7 +6,7 @@ import (
 )
 
 func mainasd() {
-	gameDeck := engine.NewGameDeck(engine.UNIQUE_SHUFFLE_SEED)
+	gameDeck := engine.NewDeck(engine.UNIQUE_SHUFFLE_SEED)
 	gameDeck.PrintSize()
 	card := gameDeck.DrawCard()
 	card.Print()

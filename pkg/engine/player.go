@@ -2,11 +2,7 @@ package engine
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"time"
-
-	"golang.org/x/term"
 )
 
 const MAX_BUFFER_SIZE = 3
@@ -50,7 +46,6 @@ type Player struct {
 }
 
 func NewPlayer(name string, hand Hand, points uint32) Player {
-
 	return Player{
 		Name:   name,
 		Hand:   hand,
@@ -70,15 +65,15 @@ func (p *Player) UpdatePoints(points uint32) {
 	p.Points = points
 }
 
-func (p *Player) PlayTurn(deck *GameDeck, table *Table) AvailablePlay {
+func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProvider OutputProvider) AvailablePlay {
 
 	fmt.Printf("%s's turn.\r\n", p.Name)
 	turnState := NewTurnState()
 
 	for {
-		play := GetPlayTerminal()
-		if IsValid(&turnState, play) {
-			Make(play, deck, table, p)
+		play := inputProvider.GetPlay()
+		if IsValid(&turnState, play, outputProvider) {
+			Make(play, deck, table, p, outputProvider)
 
 			if play.GetName() == DRAW_CARD {
 				turnState.Update(true, false)
@@ -90,17 +85,6 @@ func (p *Player) PlayTurn(deck *GameDeck, table *Table) AvailablePlay {
 		} else {
 			fmt.Println("Invalid play! Please try again.")
 		}
-	}
-}
-
-func GetPlayTerminal() Play {
-	for {
-		userInput := GetUserInput()
-		play := ParseInput(userInput)
-		if play == nil {
-			continue
-		}
-		return play
 	}
 }
 
@@ -134,93 +118,4 @@ func (c *CmdTimer) Reset() {
 }
 func (c *CmdTimer) IsExpired(expirationTime time.Duration) bool {
 	return time.Since(c.Timeout) > expirationTime*time.Second
-}
-
-func GetUserInput() string {
-
-	// Get keyboard input from stdin
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		panic(err)
-	}
-	defer term.Restore(0, oldState)
-
-	var gameCmd []string
-
-	cmdTimer := NewCmdTimer()
-	ccTimer := NewClearTimerCC()
-
-	for {
-		// Read from stdin into buffer
-		buffer := make([]byte, MAX_BUFFER_SIZE)
-		_, err = os.Stdin.Read(buffer[:1])
-		if err != nil {
-			continue
-		}
-
-		detectedKey := strings.ToLower(string(buffer[0]))
-		fmt.Printf("Key pressed: '%s'\r\n", detectedKey)
-
-		// Handle quit
-		if detectedKey == "q" {
-			fmt.Printf("Are you sure you want to quit? (y/n)\r\n")
-			_, err = os.Stdin.Read(buffer[:1])
-			if err != nil {
-				continue
-			}
-			if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
-				return "q"
-			} else {
-				continue
-			}
-		}
-
-		if detectedKey == "d" {
-			return detectedKey
-		}
-
-		if detectedKey == "e" {
-			return detectedKey
-		}
-
-		// clear input
-		if detectedKey == "c" {
-			if len(gameCmd) > 0 {
-				gameCmd = gameCmd[:len(gameCmd)-1]
-			}
-			fmt.Printf("Game command: %s\r\n", gameCmd)
-			ccTimer.Reset()
-			cmdTimer.Reset()
-			continue
-		}
-
-		// append input to gameCmd
-		gameCmd = append(gameCmd, detectedKey)
-		fmt.Printf("Game command: %s\r\n", gameCmd)
-
-		// Clear gameCmd when timeout
-		if cmdTimer.IsExpired(EXPIRATION_TIME) {
-			gameCmd = []string{}
-			cmdTimer.Reset()
-			fmt.Printf("Command timeout expired!\r\n")
-			fmt.Printf("Game command: %s\r\n", gameCmd)
-		}
-	}
-}
-
-func ParseInput(input string) Play {
-
-	switch input {
-	case "q":
-		return NewQuitPlay(input)
-	case "d":
-		return NewDrawCardPlay(input)
-	case "e":
-		return NewPassPlay(input)
-	// case "m":
-	// return NewMeldPlay(input)
-	default:
-		return nil
-	}
-
 }

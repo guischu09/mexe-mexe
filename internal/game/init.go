@@ -3,6 +3,6 @@ package game
 import "mexemexe/pkg/engine"
 
 type Game struct {
-	Deck engine.GameDeck
+	Deck engine.Deck
 	// Players []engine.Player
 }

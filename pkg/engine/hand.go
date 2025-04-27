@@ -56,7 +56,7 @@ func (h *Hand) Contains(card Card) bool {
 	return false
 }
 
-func NewHandFromDeck(deck *GameDeck, numCards uint8) Hand {
+func NewHandFromDeck(deck *Deck, numCards uint8) Hand {
 	cards := make([]Card, numCards)
 	for i := 0; i < int(numCards); i++ {
 		cards[i] = deck.DrawCard()

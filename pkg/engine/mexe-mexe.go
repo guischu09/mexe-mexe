@@ -40,15 +40,16 @@ type GameConfig struct {
 
 type Game struct {
 	Config  GameConfig
-	Deck    GameDeck
+	Deck    Deck
 	Table   Table
 	Players []Player
 }
 
 func NewGame(config GameConfig) Game {
 
+	// Implement input validation for a game to start, to avoid starting games with 10 players.
 	players := make([]Player, config.NumPlayers)
-	deck := NewGameDeck(config.Seed)
+	deck := NewDeck(config.Seed)
 
 	for i := 0; i < int(config.NumPlayers); i++ {
 		newHand := NewHandFromDeck(&deck, config.NumCards)
@@ -74,38 +75,40 @@ func (g *Game) Start() bool {
 
 	fmt.Printf("Game started!\r\n")
 
+	inputProvider := TerminalInputProvider{}
+	outputProvider := TerminalOutputProvider{}
+
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			player := &g.Players[i]
 
 			g.Print(player)
 
-			availablePlay := player.PlayTurn(&g.Deck, &g.Table)
+			availablePlay := player.PlayTurn(&g.Deck, &g.Table, &inputProvider, &outputProvider)
 
 			switch availablePlay {
 
 			case QUIT:
-				fmt.Printf("Player %s quits\r\n", player.Name)
-				fmt.Printf("Game Over!\r\n")
+				outputProvider.Write("message", "Player "+player.Name+" quits")
+				outputProvider.Write("message", "Game Over!")
 				return false
 
-			case DRAW_CARD:
-				fmt.Printf("Player %s drawed a card\r\n", player.Name)
+			case END_TURN:
+				outputProvider.Write("message", "Player "+player.Name+" ends turn")
 
-			case DRAW_CARD_AND_PLAY_MELD:
-				fmt.Printf("Player %s drawed a card and played a meld\r\n", player.Name)
+			case DRAW_CARD:
+				outputProvider.Write("message", "Player "+player.Name+" drawed a card")
 
 			case PLAY_MELD:
-				fmt.Printf("Player %s played a meld\r\n", player.Name)
-
+				outputProvider.Write("message", "Player "+player.Name+" played a meld")
 			}
 			if player.Hand.Size == 0 {
-				fmt.Printf("Player %s wins!\r\n", player.Name)
+				outputProvider.Write("message", "Player "+player.Name+" wins!")
 				return true
 			}
 		}
 	}
-	fmt.Printf("Deck is empty! Game over!\r\n")
+	outputProvider.Write("message", "Deck is empty! Game over!")
 	g.ComputePoints()
 	return true
 }

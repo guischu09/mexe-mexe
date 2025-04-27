@@ -5,13 +5,12 @@ import "fmt"
 type AvailablePlay string
 
 const (
-	DRAW_CARD_AND_PLAY_MELD AvailablePlay = "DRAW_CARD_AND_PLAY_MELD"
-	PLAY_MELD               AvailablePlay = "PLAY_MELD"
-	DRAW_CARD               AvailablePlay = "DRAW_CARD"
-	QUIT                    AvailablePlay = "QUIT"
-	END_TURN                AvailablePlay = "END_TURN"
-	SELECT_HAND             AvailablePlay = "SELECT_HAND"
-	SELECT_TABLE            AvailablePlay = "SELECT_TABLE"
+	PLAY_MELD    AvailablePlay = "PLAY_MELD"
+	DRAW_CARD    AvailablePlay = "DRAW_CARD"
+	QUIT         AvailablePlay = "QUIT"
+	END_TURN     AvailablePlay = "END_TURN"
+	SELECT_HAND  AvailablePlay = "SELECT_HAND"
+	SELECT_TABLE AvailablePlay = "SELECT_TABLE"
 )
 
 type Play interface {
@@ -70,15 +69,11 @@ func NewDrawCardPlay(command string) DrawCardPlay {
 	}
 }
 
-func IsValid(turnState *TurnState, play Play) bool {
+func IsValid(turnState *TurnState, play Play, outputProvider OutputProvider) bool {
 	switch play.GetName() {
 
-	case DRAW_CARD_AND_PLAY_MELD:
-		fmt.Println("Not implemented")
-		return false
-
 	case PLAY_MELD:
-		fmt.Println("Not implemented")
+		outputProvider.Write(string(PLAY_MELD), "Not implemented")
 		return false
 
 	case END_TURN:
@@ -86,18 +81,18 @@ func IsValid(turnState *TurnState, play Play) bool {
 		if turnState.HasPlayedMeld || turnState.HasDrawedCard {
 			return true
 		} else {
-			fmt.Println("You must play a meld or draw a card before ending the turn.")
+			outputProvider.Write("message", "You must play a meld or draw a card before ending the turn.")
 			return false
 		}
 
 	case DRAW_CARD:
 		if turnState.HasPlayedMeld {
-			fmt.Println("You can't draw a card after playing a meld.")
+			outputProvider.Write("message", "You can't draw a card after playing a meld.")
 			return false
 		}
 
 		if turnState.HasDrawedCard {
-			fmt.Println("You can't draw a card twice in a turn.")
+			outputProvider.Write("message", "You can't draw a card twice in a turn.")
 			return false
 
 		} else {
@@ -112,13 +107,9 @@ func IsValid(turnState *TurnState, play Play) bool {
 	}
 }
 
-func Make(play Play, deck *GameDeck, table *Table, player *Player) {
+func Make(play Play, deck *Deck, table *Table, player *Player, outputProvider OutputProvider) {
 
 	switch play.GetName() {
-
-	case DRAW_CARD_AND_PLAY_MELD:
-		fmt.Println("Not implemented")
-		return
 
 	case PLAY_MELD:
 		fmt.Println("Not implemented")
@@ -132,7 +123,7 @@ func Make(play Play, deck *GameDeck, table *Table, player *Player) {
 		return
 
 	case END_TURN:
-		fmt.Println("Passing turn")
+		outputProvider.Write("message", "Passing turn")
 		return
 
 	case QUIT:

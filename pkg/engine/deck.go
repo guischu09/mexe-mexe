@@ -9,7 +9,7 @@ import (
 const NO_SHUFFLE_SEED uint64 = 0
 const UNIQUE_SHUFFLE_SEED uint64 = 1
 
-type GameDeck struct {
+type Deck struct {
 	Cards []Card
 	Size  int
 	Seed  uint64
@@ -71,7 +71,7 @@ var QUEEN_OF_CLUBS, _ = NewCard(QUEEN, CLUB, QUEEN_VALUE, QUEEN_CLUB_SYMBOL, BLA
 var KING_OF_CLUBS, _ = NewCard(KING, CLUB, KING_VALUE, KING_CLUB_SYMBOL, BLACK)
 var ACE_OF_CLUBS, _ = NewCard(ACE, CLUB, ACE_VALUE, ACE_CLUB_SYMBOL, BLACK)
 
-func NewGameDeck(seed uint64) GameDeck {
+func NewDeck(seed uint64) Deck {
 	var cards []Card
 
 	cards = append(cards, TWO_OF_SPADES, THREE_OF_SPADES, FOUR_OF_SPADES, FIVE_OF_SPADES, SIX_OF_SPADES, SEVEN_OF_SPADES, EIGHT_OF_SPADES, NINE_OF_SPADES, TEN_OF_SPADES, JACK_OF_SPADES, QUEEN_OF_SPADES, KING_OF_SPADES, ACE_OF_SPADES)
@@ -87,7 +87,7 @@ func NewGameDeck(seed uint64) GameDeck {
 	cards = append(cards, TWO_OF_CLUBS, THREE_OF_CLUBS, FOUR_OF_CLUBS, FIVE_OF_CLUBS, SIX_OF_CLUBS, SEVEN_OF_CLUBS, EIGHT_OF_CLUBS, NINE_OF_CLUBS, TEN_OF_CLUBS, JACK_OF_CLUBS, QUEEN_OF_CLUBS, KING_OF_CLUBS, ACE_OF_CLUBS)
 
 	if seed == NO_SHUFFLE_SEED {
-		gameDeck := GameDeck{
+		gameDeck := Deck{
 			Cards: cards,
 			Size:  len(cards),
 			Seed:  seed,
@@ -104,7 +104,7 @@ func NewGameDeck(seed uint64) GameDeck {
 		rng.Shuffle(len(cards), func(i, j int) {
 			cards[i], cards[j] = cards[j], cards[i]
 		})
-		gameDeck := GameDeck{
+		gameDeck := Deck{
 			Cards: cards,
 			Size:  len(cards),
 			Seed:  seedTime,
@@ -118,7 +118,7 @@ func NewGameDeck(seed uint64) GameDeck {
 		cards[i], cards[j] = cards[j], cards[i]
 	})
 
-	gameDeck := GameDeck{
+	gameDeck := Deck{
 		Cards: cards,
 		Size:  len(cards),
 		Seed:  seed,
@@ -127,22 +127,22 @@ func NewGameDeck(seed uint64) GameDeck {
 	return gameDeck
 }
 
-func (g *GameDeck) Print() {
+func (g *Deck) Print() {
 	for i := 0; i < len(g.Cards); i++ {
 		fmt.Println(g.Cards[i].Name + " " + string(g.Cards[i].Symbol))
 	}
 	fmt.Println("Size: ", g.Size)
 }
 
-func (g *GameDeck) PrintSize() {
+func (g *Deck) PrintSize() {
 	fmt.Println("Size: ", g.Size)
 }
 
-func (g *GameDeck) updateSize() {
+func (g *Deck) updateSize() {
 	g.Size = len(g.Cards)
 }
 
-func (g *GameDeck) Contains(card Card) bool {
+func (g *Deck) Contains(card Card) bool {
 	for i := 0; i < len(g.Cards); i++ {
 		if g.Cards[i].Name == card.Name {
 			return true
@@ -151,14 +151,14 @@ func (g *GameDeck) Contains(card Card) bool {
 	return false
 }
 
-func (g *GameDeck) DrawCard() Card {
+func (g *Deck) DrawCard() Card {
 	card := g.Cards[0]
 	g.Cards = g.Cards[1:]
 	g.updateSize()
 	return card
 }
 
-func (g *GameDeck) RemoveCard(card Card) bool {
+func (g *Deck) RemoveCard(card Card) bool {
 	for i := 0; i < len(g.Cards); i++ {
 		if g.Cards[i].Name == card.Name {
 			g.Cards = append(g.Cards[:i], g.Cards[i+1:]...)
