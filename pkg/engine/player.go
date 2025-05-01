@@ -71,7 +71,7 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 	turnState := NewTurnState()
 
 	for {
-		play := inputProvider.GetPlay()
+		play := inputProvider.GetPlay(table)
 		if IsValid(&turnState, play, outputProvider) {
 			Make(play, deck, table, p, outputProvider)
 
