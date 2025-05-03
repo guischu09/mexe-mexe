@@ -8,7 +8,7 @@ func main() {
 		Seed:              engine.UNIQUE_SHUFFLE_SEED,
 		PlayersName:       []string{"Guilherme", "Michele"},
 		NumPlayers:        2,
-		NumCards:          11,
+		NumCards:          21,
 		RandomPlayerOrder: true,
 	}
 

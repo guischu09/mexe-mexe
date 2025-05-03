@@ -9,14 +9,14 @@ import (
 )
 
 type InputProvider interface {
-	GetPlay(*Table) Play
+	GetPlay(*Table, *Hand) Play
 }
 
 type TerminalInputProvider struct{}
 
-func (t *TerminalInputProvider) GetPlay(table *Table) Play {
+func (t *TerminalInputProvider) GetPlay(table *Table, hand *Hand) Play {
 	for {
-		userInput := GetUserInput(table)
+		userInput := GetUserInput(table, hand)
 		play := ParseInput(userInput)
 		if play == nil {
 			continue
@@ -25,7 +25,7 @@ func (t *TerminalInputProvider) GetPlay(table *Table) Play {
 	}
 }
 
-func GetUserInput(table *Table) string {
+func GetUserInput(table *Table, hand *Hand) string {
 
 	// Get keyboard input from stdin
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -46,7 +46,6 @@ func GetUserInput(table *Table) string {
 		if err != nil {
 			continue
 		}
-
 		detectedKey := strings.ToLower(string(buffer[0]))
 		fmt.Printf("Key pressed: '%s'\r\n", detectedKey)
 
@@ -67,7 +66,7 @@ func GetUserInput(table *Table) string {
 
 		if detectedKey == "m" {
 			fmt.Printf("Select your cards and play a meld.\r\n")
-			MeldDisplayInput(table)
+			MeldDisplayInput(table, hand)
 		}
 
 		if detectedKey == "d" {
@@ -101,18 +100,6 @@ func GetUserInput(table *Table) string {
 			fmt.Printf("Game command: %s\r\n", gameCmd)
 		}
 	}
-}
-
-func MeldDisplayInput(table *Table) {
-
-	width, height, err := term.GetSize(0)
-	if err != nil {
-		return
-	}
-	fmt.Printf("width:%d height:%d\r\n", width, height)
-
-	table.Print(width, height)
-
 }
 
 func ParseInput(input string) Play {

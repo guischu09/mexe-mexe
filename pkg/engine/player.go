@@ -10,9 +10,7 @@ const EXPIRATION_TIME = 30 // seconds
 
 var INPUT_MAPPING = map[string]AvailablePlay{
 	"q": QUIT,
-	"h": SELECT_HAND,
-	"t": SELECT_TABLE,
-	"p": PLAY_MELD,
+	"m": PLAY_MELD,
 	"d": DRAW_CARD,
 	"e": END_TURN,
 }
@@ -22,8 +20,8 @@ type TurnState struct {
 	HasPlayedMeld bool
 }
 
-func NewTurnState() TurnState {
-	return TurnState{
+func NewTurnState() *TurnState {
+	return &TurnState{
 		HasDrawedCard: false,
 		HasPlayedMeld: false,
 	}
@@ -41,11 +39,11 @@ func (t *TurnState) Print() {
 
 type Player struct {
 	Name   string
-	Hand   Hand
+	Hand   *Hand
 	Points uint32
 }
 
-func NewPlayer(name string, hand Hand, points uint32) Player {
+func NewPlayer(name string, hand *Hand, points uint32) Player {
 	return Player{
 		Name:   name,
 		Hand:   hand,
@@ -71,9 +69,9 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 	turnState := NewTurnState()
 
 	for {
-		play := inputProvider.GetPlay(table)
-		if IsValid(&turnState, play, outputProvider) {
-			Make(play, deck, table, p, outputProvider)
+		play := inputProvider.GetPlay(table, p.Hand)
+		if IsValid(turnState, play, outputProvider) {
+			MakePlay(play, deck, table, p, outputProvider)
 
 			if play.GetName() == DRAW_CARD {
 				turnState.Update(true, false)

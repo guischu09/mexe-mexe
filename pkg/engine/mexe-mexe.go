@@ -45,7 +45,7 @@ type Game struct {
 	Players []Player
 }
 
-func NewGame(config GameConfig) Game {
+func NewGame(config GameConfig) *Game {
 
 	// Implement input validation for a game to start, to avoid starting games with 10 players.
 	players := make([]Player, config.NumPlayers)
@@ -64,7 +64,7 @@ func NewGame(config GameConfig) Game {
 		})
 	}
 
-	return Game{
+	return &Game{
 		Config:  config,
 		Deck:    deck,
 		Players: players,

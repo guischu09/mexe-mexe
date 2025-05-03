@@ -38,7 +38,7 @@ func MakeMeldFromCards(cards []Card) (Meld, error) {
 
 	// A meld must have at least 3 cards
 	if len(cards) < MIN_MELD_SIZE {
-		fmt.Println("ERROR: Meld must have at least 3 cards")
+		fmt.Printf("ERROR: Meld must have at least 3 cards\r\n")
 		return Meld{
 			Type:  NONE,
 			Cards: []Card{},
@@ -54,7 +54,7 @@ func MakeMeldFromCards(cards []Card) (Meld, error) {
 	} else if isMeldSequence(cards) {
 		return Meld{SEQUENCE, cards}, nil
 	} else {
-		fmt.Println("ERROR: Not a valid Meld")
+		fmt.Printf("\r\nERROR: Not a valid Meld\r\n")
 		return Meld{
 			Type:  NONE,
 			Cards: []Card{},

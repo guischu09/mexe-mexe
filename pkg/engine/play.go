@@ -107,7 +107,7 @@ func IsValid(turnState *TurnState, play Play, outputProvider OutputProvider) boo
 	}
 }
 
-func Make(play Play, deck *Deck, table *Table, player *Player, outputProvider OutputProvider) {
+func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvider OutputProvider) {
 
 	switch play.GetName() {
 
