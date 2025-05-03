@@ -17,6 +17,13 @@ func MeldDisplayInput(table *Table, hand *Hand) []Card {
 	}
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
 
+	// Get terminal dimensions
+	width, _, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		fmt.Printf("Error getting terminal size: %s\r\n", err)
+		return nil
+	}
+
 	// Combine cards from hand and table for navigation
 	allCards := append([]Card{}, hand.Cards...)
 	tableCards := append([]Card{}, table.PlayedCards...)
@@ -32,19 +39,55 @@ func MeldDisplayInput(table *Table, hand *Hand) []Card {
 	selectedCards := make([]bool, len(allCards))
 	selectedCount := 0
 
+	// Helper function to create a horizontal line that fits the terminal width
+	createHorizontalLine := func(char string) string {
+		line := ""
+		for i := 0; i < width; i++ {
+			line += char
+		}
+		return line
+	}
+
 	// Main interaction loop
 	for {
 		// Clear screen
 		fmt.Print("\033[H\033[2J")
 
-		// Display instructions
-		fmt.Printf("========================== MELD SELECTION MODE ===================\r\n")
-		fmt.Printf("  ← → : Navigate | 's': Select | 'p': Play meld | 'q': Quit\r\n")
-		fmt.Printf("==================================================================\r\n")
+		// Display instructions - scaled to terminal width
+		titleText := " MELD SELECTION MODE "
+		padding := (width - len(titleText)) / 2
+		if padding < 0 {
+			padding = 0
+		}
+
+		headerLine := createHorizontalLine("=")
+
+		padStr := ""
+		for i := 0; i < padding; i++ {
+			padStr += "="
+		}
+		fmt.Printf("%s%s%s\r\n", padStr, titleText, padStr)
+
+		// Instructions line
+		instText := "  ← → : Navigate | 's': Select | 'p': Play meld | 'q': Quit"
+		fmt.Printf("%s\r\n", instText)
+		fmt.Printf("%s\r\n", headerLine[:width])
 
 		// Display table section
-		fmt.Print("\r\n                                TABLE\r\n")
-		fmt.Printf("__________________________________________________________________\r\n")
+		tableTitle := "TABLE"
+		tablePadding := (width - len(tableTitle)) / 2
+		if tablePadding < 0 {
+			tablePadding = 0
+		}
+
+		tablePadStr := ""
+		for i := 0; i < tablePadding; i++ {
+			tablePadStr += " "
+		}
+
+		fmt.Printf("\r\n%s%s\r\n", tablePadStr, tableTitle)
+		fmt.Printf("%s\r\n", createHorizontalLine("_")[:width])
+
 		if len(tableCards) > 0 {
 			tableOffset := len(hand.Cards)
 			DisplayCardsWithSelection(tableCards, selectedCards[tableOffset:], currentPos >= tableOffset, currentPos-tableOffset)
@@ -52,11 +95,14 @@ func MeldDisplayInput(table *Table, hand *Hand) []Card {
 			fmt.Printf("\r\n\r\n")
 		}
 
-		fmt.Printf("__________________________________________________________________\r\n")
+		fmt.Printf("%s\r\n", createHorizontalLine("_")[:width])
+
 		// Display hand section
-		fmt.Printf("\r\n------------------------------ YOUR HAND -------------------------\r\n")
+		handDivider := createHorizontalLine("-")[:width]
+		fmt.Printf("\r\n%s\r\n", handDivider)
 		DisplayCardsWithSelection(hand.Cards, selectedCards[:len(hand.Cards)], currentPos < len(hand.Cards), currentPos)
-		fmt.Printf("\r\n------------------------------------------------------------------\r\n")
+		fmt.Printf("\r\n%s\r\n", handDivider)
+
 		// Show selected cards
 		if selectedCount > 0 {
 			selectedCardsList := []Card{}
@@ -130,7 +176,7 @@ func MeldDisplayInput(table *Table, hand *Hand) []Card {
 // Helper function to display cards with selection and highlight
 func DisplayCardsWithSelection(cards []Card, selections []bool, isCurrentSection bool, currentPosInSection int) {
 	if len(cards) == 0 {
-		fmt.Printf("No cards.\r\n")
+		fmt.Printf("\r\nNo cards.\r\n")
 		return
 	}
 
