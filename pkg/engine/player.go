@@ -65,11 +65,10 @@ func (p *Player) UpdatePoints(points uint32) {
 
 func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProvider OutputProvider) AvailablePlay {
 
-	fmt.Printf("%s's turn.\r\n", p.Name)
 	turnState := NewTurnState()
 
 	for {
-		play := inputProvider.GetPlay(table, p.Hand)
+		play := inputProvider.GetPlay(table, p.Hand, p.Name)
 		if IsValid(turnState, play, outputProvider) {
 			MakePlay(play, deck, table, p, outputProvider)
 

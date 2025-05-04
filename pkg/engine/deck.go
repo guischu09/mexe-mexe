@@ -151,11 +151,11 @@ func (g *Deck) Contains(card Card) bool {
 	return false
 }
 
-func (g *Deck) DrawCard() Card {
+func (g *Deck) DrawCard() *Card {
 	card := g.Cards[0]
 	g.Cards = g.Cards[1:]
 	g.updateSize()
-	return card
+	return &card
 }
 
 func (g *Deck) RemoveCard(card Card) bool {

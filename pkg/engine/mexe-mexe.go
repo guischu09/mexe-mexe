@@ -82,12 +82,9 @@ func (g *Game) Start() bool {
 		for i := range g.Players {
 			player := &g.Players[i]
 
-			g.Print(player)
-
 			availablePlay := player.PlayTurn(&g.Deck, &g.Table, &inputProvider, &outputProvider)
 
 			switch availablePlay {
-
 			case QUIT:
 				outputProvider.Write("message", "Player "+player.Name+" quits")
 				outputProvider.Write("message", "Game Over!")

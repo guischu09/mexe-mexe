@@ -6,7 +6,7 @@ import (
 )
 
 type Table struct {
-	PlayedCards []Card
+	PlayedCards []*Card
 	Size        int
 }
 
