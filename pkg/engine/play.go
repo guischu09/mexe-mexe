@@ -136,7 +136,7 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 	case PLAY_MELD:
 		for _, card := range play.GetCards() {
 			player.Hand.RemoveCard(card)
-			table.PlayedCards = append(table.PlayedCards, card)
+			table.AddCard(card)
 		}
 		return
 

@@ -10,6 +10,7 @@ func main() {
 		NumPlayers:        2,
 		NumCards:          21,
 		RandomPlayerOrder: true,
+		TotalCards:        uint8(engine.TOTAL_DECK_SIZE),
 	}
 
 	game := engine.NewGame(gameConfig)

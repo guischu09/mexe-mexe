@@ -60,6 +60,20 @@ func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
 }
 
 func (r *Rederer) PrintState(screenBuffer *strings.Builder) {
+
+	titleText := "Game State - DEBUG"
+	padding := max((r.Width-len(titleText))/2, 0)
+	headerLine := r.CreateHorizontalLine("#-#")
+	padStr := ""
+	for range padding {
+		padStr += "#-#"
+	}
+	screenBuffer.WriteString(fmt.Sprintf("%s%s%s\r\n", padStr, titleText, padStr))
+
+	// Instructions line
+	instText := fmt.Sprintf("Table Size: ")
+	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", instText))
+	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", headerLine[:r.Width]))
 }
 
 func (r *Rederer) UserInputDisplay() Play {
@@ -79,7 +93,7 @@ func (r *Rederer) UserInputDisplay() Play {
 
 	// Combine cards from hand and table for navigation
 	allCards := slices.Clone(r.Hand.Cards)
-	tableCards := slices.Clone(r.Table.PlayedCards)
+	tableCards := slices.Clone(r.Table.Cards)
 	allCards = append(allCards, tableCards...)
 
 	if len(allCards) == 0 {
@@ -178,7 +192,7 @@ func (r *Rederer) UserInputDisplay() Play {
 func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMessage string) {
 	var screenBuffer strings.Builder
 
-	r.PrintState(&screenBuffer)
+	// r.PrintState(&screenBuffer)
 	// r.PrintInstructions(&screenBuffer)
 
 	// Display table section
@@ -196,9 +210,9 @@ func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMes
 	screenBuffer.WriteString(fmt.Sprintf("\r\n%s%s\r\n", tablePadStr, tableTitle))
 	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", r.CreateHorizontalLine("_")[:r.Width]))
 
-	if len(r.Table.PlayedCards) > 0 {
+	if len(r.Table.Cards) > 0 {
 		tableOffset := len(r.Hand.Cards)
-		tableOutput := DisplayCardsWithSelectionToString(r.Table.PlayedCards, selectedCards[tableOffset:],
+		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, selectedCards[tableOffset:],
 			r.currentPos >= tableOffset, r.currentPos-tableOffset)
 		screenBuffer.WriteString(tableOutput)
 	} else {

@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+const TOTAL_DECK_SIZE uint64 = 104
 const NO_SHUFFLE_SEED uint64 = 0
 const UNIQUE_SHUFFLE_SEED uint64 = 1
 

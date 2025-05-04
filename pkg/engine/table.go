@@ -2,52 +2,39 @@ package engine
 
 import (
 	"fmt"
-	"strings"
+	"slices"
 )
 
 type Table struct {
-	PlayedCards []*Card
-	Size        int
+	Cards []*Card
+	Size  int
 }
 
-func (t *Table) Print(terminalWidth int, terminalHeight int) {
-	// for i := 0; i < t.Size; i++ {
-	// fmt.Printf("%d ", t.PlayedCards[i].Value)
-	// }
-
-	for i := 0; i < terminalHeight*2; i++ {
-		for j := 0; j < terminalWidth; j++ {
-			if i == j {
-				line := getLine()
-				fmt.Print(line)
-			}
-			// fmt.Println("#")
+func (t *Table) RemoveCard(card *Card) bool {
+	for i := 0; i < len(t.Cards); i++ {
+		if t.Cards[i].Name == card.Name {
+			t.Cards = slices.Delete(t.Cards, i, i+1)
+			t.updateSize()
+			return true
 		}
 	}
+	fmt.Println("Card not found in the Table")
+	return false
 }
 
-// for i := 0; i < terminalHeight; i++ {
-// 	for j := 0; j < terminalWidth; j++ {
-// 		if i < t.Size && j < len(t.PlayedCards[i].Symbol) {
-// 			fmt.Printf("%c", t.PlayedCards[i].Symbol[j])
-// 		} else {
-// 			fmt.Printf(" ")
-// 		}
-// 	}
-// 	fmt.Println()
-// }
-
-// for i := 0; i < terminalHeight; i++ {
-
-func getLine() string {
-	line := strings.Repeat("#", 2)
-	return line
+func (t *Table) Print() {
+	printTable := ""
+	for i := 0; i < len(t.Cards); i++ {
+		printTable += string(t.Cards[i].Symbol) + " "
+	}
+	fmt.Println(printTable)
 }
 
-func getColumn() string {
-	return ""
+func (t *Table) AddCard(card *Card) {
+	t.Cards = append(t.Cards, card)
+	t.updateSize()
 }
 
-// func getColumn(terminalWidth int, terminalHeight int) string {
-
-// }
+func (t *Table) updateSize() {
+	t.Size = len(t.Cards)
+}

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"log"
 	"math/rand/v2"
 )
 
@@ -36,6 +37,7 @@ type GameConfig struct {
 	NumPlayers        uint8
 	NumCards          uint8
 	RandomPlayerOrder bool
+	TotalCards        uint8
 }
 
 type Game struct {
@@ -80,8 +82,8 @@ func (g *Game) Start() bool {
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
+			g.ValidadeGame()
 			player := &g.Players[i]
-
 			availablePlay := player.PlayTurn(&g.Deck, &g.Table, &inputProvider, &outputProvider)
 
 			switch availablePlay {
@@ -122,4 +124,17 @@ func (g *Game) Print(player *Player) {
 	fmt.Printf("%s's Hand:\r\n", player.Name)
 	player.Hand.Print()
 	fmt.Printf("Deck size: %d\r\n", g.Deck.Size)
+}
+
+func (g *Game) ValidadeGame() {
+	numberCardsWithPlayers := 0
+	for i := range g.Players {
+		numberCardsWithPlayers += len(g.Players[i].Hand.Cards)
+	}
+	totalCardsGame := numberCardsWithPlayers + g.Deck.Size + len(g.Table.Cards)
+
+	if uint8(totalCardsGame) == uint8(g.Config.TotalCards) {
+		return
+	}
+	log.Fatalf("ERROR: Card leek. Current total cards: %d, expected: %d", totalCardsGame, g.Config.TotalCards)
 }
