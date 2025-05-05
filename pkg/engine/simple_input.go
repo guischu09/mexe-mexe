@@ -5,9 +5,42 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 )
+
+type ClearTimerCC struct {
+	Timeout time.Time
+}
+
+func NewClearTimerCC() ClearTimerCC {
+	return ClearTimerCC{
+		Timeout: time.Now(),
+	}
+}
+func (c *ClearTimerCC) Reset() {
+	c.Timeout = time.Now()
+}
+func (c *ClearTimerCC) IsExpired(expirationTime time.Duration) bool {
+	return time.Since(c.Timeout) > expirationTime*time.Millisecond
+}
+
+type CmdTimer struct {
+	Timeout time.Time
+}
+
+func NewCmdTimer() CmdTimer {
+	return CmdTimer{
+		Timeout: time.Now(),
+	}
+}
+func (c *CmdTimer) Reset() {
+	c.Timeout = time.Now()
+}
+func (c *CmdTimer) IsExpired(expirationTime time.Duration) bool {
+	return time.Since(c.Timeout) > expirationTime*time.Second
+}
 
 type TerminalInputProvider_old struct{}
 

@@ -19,10 +19,11 @@ type Rederer struct {
 	PlayerName    string
 	currentPos    int
 	selectedCount int
-	renderMessage string
+	selectedCards []bool
+	turnState     *TurnState
 }
 
-func NewRenderer(table *Table, hand *Hand, playerName string) *Rederer {
+func NewRenderer(table *Table, hand *Hand, playerName string, turnState *TurnState) *Rederer {
 	return &Rederer{
 		Width:         0,
 		Table:         table,
@@ -30,7 +31,8 @@ func NewRenderer(table *Table, hand *Hand, playerName string) *Rederer {
 		PlayerName:    playerName,
 		currentPos:    0,
 		selectedCount: 0,
-		renderMessage: "",
+		selectedCards: []bool{false},
+		turnState:     turnState,
 	}
 }
 
@@ -59,24 +61,10 @@ func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
 	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", headerLine[:r.Width]))
 }
 
-func (r *Rederer) PrintState(screenBuffer *strings.Builder) {
-
-	titleText := "Game State - DEBUG"
-	padding := max((r.Width-len(titleText))/2, 0)
-	headerLine := r.CreateHorizontalLine("#-#")
-	padStr := ""
-	for range padding {
-		padStr += "#-#"
-	}
-	screenBuffer.WriteString(fmt.Sprintf("%s%s%s\r\n", padStr, titleText, padStr))
-
-	// Instructions line
-	instText := fmt.Sprintf("Table Size: ")
-	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", instText))
-	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", headerLine[:r.Width]))
-}
-
 func (r *Rederer) UserInputDisplay() Play {
+
+	fmt.Print("\033[H\033[2J") // Clear screen
+
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		log.Fatalf("Error setting up terminal: %s\r\n", err)
@@ -101,12 +89,12 @@ func (r *Rederer) UserInputDisplay() Play {
 	}
 
 	r.currentPos = 0
-	selectedCards := make([]bool, len(allCards))
-	selectedCount := 0
+	r.selectedCards = make([]bool, len(allCards))
+	r.selectedCount = 0
 	statusMessage := ""
 
 	for {
-		r.RenderScreen(selectedCards, allCards, statusMessage)
+		r.RenderScreen(allCards, statusMessage)
 		if statusMessage != "" {
 			time.Sleep(1 * time.Second)
 			statusMessage = ""
@@ -123,7 +111,6 @@ func (r *Rederer) UserInputDisplay() Play {
 		if n == 1 {
 			switch buffer[0] {
 			case 'q':
-				fmt.Print("\033[?25h")
 				fmt.Print("\033[H\033[2J")
 				fmt.Printf("Are you sure you want to quit? (y/n)\r\n")
 				_, err = os.Stdin.Read(buffer[:1])
@@ -133,44 +120,53 @@ func (r *Rederer) UserInputDisplay() Play {
 				if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
 					return NewQuitPlay("q")
 				} else {
-					fmt.Printf("Continue playing...\r\n")
+					fmt.Print("\033[H\033[2J")
 					continue
 				}
 			case 's':
-				selectedCards[r.currentPos] = !selectedCards[r.currentPos]
-				if selectedCards[r.currentPos] {
-					selectedCount++
+				r.selectedCards[r.currentPos] = !r.selectedCards[r.currentPos]
+				if r.selectedCards[r.currentPos] {
+					r.selectedCount++
 				} else {
-					selectedCount--
+					r.selectedCount--
 				}
 
 			case 'd':
-				return NewDrawCardPlay("d")
+				if !r.turnState.HasDrawedCard {
+					return NewDrawCardPlay("d")
+				} else {
+					statusMessage = "You can't draw a card twice in a turn."
+					continue
+				}
 
 			case 'e':
-				return NewEndTurnPlay("e")
+				if r.turnState.HasPlayedMeld || r.turnState.HasDrawedCard {
+					return NewEndTurnPlay("e")
+				} else {
+					statusMessage = "You must play a meld or draw a card before ending the turn."
+					continue
+				}
 
 			case 'p':
-				if selectedCount < MIN_MELD_SIZE {
+				if r.selectedCount < MIN_MELD_SIZE {
 					statusMessage = fmt.Sprintf("ERROR: You need to select at least %d cards for a meld.", MIN_MELD_SIZE)
 					continue
 				}
 
 				var selectedMeldCards []*Card
-				for i, isSelected := range selectedCards {
+				for i, isSelected := range r.selectedCards {
 					if isSelected {
 						selectedMeldCards = append(selectedMeldCards, allCards[i])
 					}
 				}
 
-				meld, err := MakeMeldFromCards(selectedMeldCards)
+				_, err := MakeMeldFromCards(selectedMeldCards)
 				if err != nil {
 					statusMessage = fmt.Sprintf("%s", err)
 					continue
 				}
 				fmt.Print("\033[?25h")     // Show cursor before returning
 				fmt.Print("\033[H\033[2J") // Clear screen
-				fmt.Printf("Valid %s meld created!\r\n", meld.Type)
 
 				return NewMeldPlay("m", selectedMeldCards)
 			}
@@ -189,11 +185,9 @@ func (r *Rederer) UserInputDisplay() Play {
 	}
 }
 
-func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMessage string) {
-	var screenBuffer strings.Builder
+func (r *Rederer) RenderScreen(allCards []*Card, statusMessage string) {
 
-	// r.PrintState(&screenBuffer)
-	// r.PrintInstructions(&screenBuffer)
+	var screenBuffer strings.Builder
 
 	// Display table section
 	tableTitle := "\nTABLE"
@@ -212,7 +206,7 @@ func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMes
 
 	if len(r.Table.Cards) > 0 {
 		tableOffset := len(r.Hand.Cards)
-		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, selectedCards[tableOffset:],
+		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, r.selectedCards[tableOffset:],
 			r.currentPos >= tableOffset, r.currentPos-tableOffset)
 		screenBuffer.WriteString(tableOutput)
 	} else {
@@ -236,7 +230,7 @@ func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMes
 	handDivider := r.CreateHorizontalLine("-")[:r.Width]
 	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", handDivider))
 
-	handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, selectedCards[:len(r.Hand.Cards)],
+	handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, r.selectedCards[:len(r.Hand.Cards)],
 		r.currentPos < len(r.Hand.Cards), r.currentPos)
 	screenBuffer.WriteString(handOutput)
 
@@ -245,7 +239,7 @@ func (r *Rederer) RenderScreen(selectedCards []bool, allCards []*Card, statusMes
 	// Show selected cards
 	if r.selectedCount > 0 {
 		selectedCardsList := []Card{}
-		for i, isSelected := range selectedCards {
+		for i, isSelected := range r.selectedCards {
 			if isSelected {
 				selectedCardsList = append(selectedCardsList, *allCards[i])
 			}

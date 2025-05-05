@@ -114,6 +114,7 @@ type Card struct {
 	Value  CardValue
 	Symbol CardSymbol
 	Color  CardColor
+	UUID   uint8
 }
 
 func PrintCards(cards []Card) {
@@ -128,16 +129,15 @@ func (c *Card) Print() {
 	fmt.Println(c.Symbol)
 }
 
-// todo create a new card from name only
-func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (Card, error) {
+func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (*Card, error) {
 	// Fix the condition for hearts and diamonds
 	if (suit == HEART || suit == DIAMOND) && color != RED {
-		return Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
+		return &Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
 	// Fix the condition for clubs and spades
 	if (suit == CLUB || suit == SPADE) && color != BLACK {
-		return Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
+		return &Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
 	fullCardName := strings.ToLower(name + " of " + string(suit) + "s" + " " + string(symbol))
@@ -150,5 +150,5 @@ func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, col
 		Color:  color,
 	}
 
-	return newCard, nil
+	return &newCard, nil
 }

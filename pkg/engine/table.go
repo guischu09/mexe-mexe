@@ -12,13 +12,12 @@ type Table struct {
 
 func (t *Table) RemoveCard(card *Card) bool {
 	for i := 0; i < len(t.Cards); i++ {
-		if t.Cards[i].Name == card.Name {
+		if t.Cards[i].UUID == card.UUID {
 			t.Cards = slices.Delete(t.Cards, i, i+1)
 			t.updateSize()
 			return true
 		}
 	}
-	fmt.Println("Card not found in the Table")
 	return false
 }
 
@@ -30,7 +29,22 @@ func (t *Table) Print() {
 	fmt.Println(printTable)
 }
 
+func (g *Table) Contains(card *Card) bool {
+	for i := 0; i < len(g.Cards); i++ {
+		if g.Cards[i].UUID == card.UUID {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *Table) AddCard(card *Card) {
+
+	for i := range t.Cards {
+		if t.Cards[i].UUID == card.UUID {
+			return
+		}
+	}
 	t.Cards = append(t.Cards, card)
 	t.updateSize()
 }
