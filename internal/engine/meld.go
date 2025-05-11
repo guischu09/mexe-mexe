@@ -12,7 +12,7 @@ const NONE MeldType = "NONE"
 
 type Meld struct {
 	Type  MeldType
-	Cards []Card
+	Cards []*Card
 }
 
 func (m *Meld) Print() {
@@ -34,14 +34,13 @@ func (m *Meld) IsValid() bool {
 	}
 }
 
-func MakeMeldFromCards(cards []Card) (Meld, error) {
+func MakeMeldFromCards(cards []*Card) (Meld, error) {
 
 	// A meld must have at least 3 cards
 	if len(cards) < MIN_MELD_SIZE {
-		fmt.Printf("ERROR: Meld must have at least 3 cards\r\n")
 		return Meld{
 			Type:  NONE,
-			Cards: []Card{},
+			Cards: []*Card{},
 		}, fmt.Errorf("ERROR: Meld must have at least 3 cards")
 	}
 
@@ -54,17 +53,16 @@ func MakeMeldFromCards(cards []Card) (Meld, error) {
 	} else if isMeldSequence(cards) {
 		return Meld{SEQUENCE, cards}, nil
 	} else {
-		fmt.Printf("\r\nERROR: Not a valid Meld\r\n")
 		return Meld{
 			Type:  NONE,
-			Cards: []Card{},
+			Cards: []*Card{},
 		}, fmt.Errorf("ERROR: Not a valid Meld")
 
 	}
 
 }
 
-func isMeldSequence(cards []Card) bool {
+func isMeldSequence(cards []*Card) bool {
 
 	// Check if has same suit - if not, it is not a sequence
 	for i := 0; i < len(cards)-1; i++ {
@@ -83,7 +81,7 @@ func isMeldSequence(cards []Card) bool {
 	return true
 }
 
-func isMeldBook(cards []Card) bool {
+func isMeldBook(cards []*Card) bool {
 	// Check if they have the same value (e.g. 4,4,4)
 	for i := 0; i < len(cards)-1; i++ {
 		if cards[i].Value != cards[i+1].Value {

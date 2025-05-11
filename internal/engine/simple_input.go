@@ -2,19 +2,49 @@ package engine
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 )
 
-type InputProvider interface {
-	GetPlay(*Table, *Hand) Play
+type ClearTimerCC struct {
+	Timeout time.Time
 }
 
-type TerminalInputProvider struct{}
+func NewClearTimerCC() ClearTimerCC {
+	return ClearTimerCC{
+		Timeout: time.Now(),
+	}
+}
+func (c *ClearTimerCC) Reset() {
+	c.Timeout = time.Now()
+}
+func (c *ClearTimerCC) IsExpired(expirationTime time.Duration) bool {
+	return time.Since(c.Timeout) > expirationTime*time.Millisecond
+}
 
-func (t *TerminalInputProvider) GetPlay(table *Table, hand *Hand) Play {
+type CmdTimer struct {
+	Timeout time.Time
+}
+
+func NewCmdTimer() CmdTimer {
+	return CmdTimer{
+		Timeout: time.Now(),
+	}
+}
+func (c *CmdTimer) Reset() {
+	c.Timeout = time.Now()
+}
+func (c *CmdTimer) IsExpired(expirationTime time.Duration) bool {
+	return time.Since(c.Timeout) > expirationTime*time.Second
+}
+
+type TerminalInputProvider_old struct{}
+
+func (t *TerminalInputProvider_old) GetPlay(table *Table, hand *Hand) Play {
 	for {
 		userInput := GetUserInput(table, hand)
 		play := ParseInput(userInput)
@@ -66,7 +96,6 @@ func GetUserInput(table *Table, hand *Hand) string {
 
 		if detectedKey == "m" {
 			fmt.Printf("Select your cards and play a meld.\r\n")
-			MeldDisplayInput(table, hand)
 		}
 
 		if detectedKey == "d" {
@@ -110,7 +139,9 @@ func ParseInput(input string) Play {
 	case "d":
 		return NewDrawCardPlay(input)
 	case "e":
-		return NewPassPlay(input)
+		log.Fatal("Not implemented")
+		return nil
+		// return NewPassPlay(input)
 	// case "m":
 	// return NewMeldPlay(input)
 	default:

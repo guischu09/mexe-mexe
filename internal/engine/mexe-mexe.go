@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"log"
 	"math/rand/v2"
 )
 
@@ -36,11 +37,12 @@ type GameConfig struct {
 	NumPlayers        uint8
 	NumCards          uint8
 	RandomPlayerOrder bool
+	TotalCards        uint8
 }
 
 type Game struct {
 	Config  GameConfig
-	Deck    Deck
+	Deck    *Deck
 	Table   Table
 	Players []Player
 }
@@ -51,9 +53,22 @@ func NewGame(config GameConfig) *Game {
 	players := make([]Player, config.NumPlayers)
 	deck := NewDeck(config.Seed)
 
+	for i, card1 := range deck.Cards {
+		for j, card2 := range deck.Cards {
+			if i != j && card1.UUID == card2.UUID {
+				fmt.Printf("Detected collision of UUIDs. UUID: %d, Symbol: %s and Symbol: %s\n", card1.UUID, string(card1.Symbol), string(card2.Symbol))
+			}
+		}
+	}
+
 	for i := 0; i < int(config.NumPlayers); i++ {
-		newHand := NewHandFromDeck(&deck, config.NumCards)
+		newHand := NewHandFromDeck(deck, config.NumCards)
 		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
+
+		// fmt.Printf("%s's Hand:\r\n", players[i].Name)
+		// for _, card := range newHand.Cards {
+		// 	fmt.Printf("UUID: %d, Symbol: %s\r\n", card.UUID, string(card.Symbol))
+		// }
 	}
 
 	if config.RandomPlayerOrder {
@@ -80,14 +95,11 @@ func (g *Game) Start() bool {
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
+			g.ValidadeGame()
 			player := &g.Players[i]
-
-			g.Print(player)
-
-			availablePlay := player.PlayTurn(&g.Deck, &g.Table, &inputProvider, &outputProvider)
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, &inputProvider, &outputProvider)
 
 			switch availablePlay {
-
 			case QUIT:
 				outputProvider.Write("message", "Player "+player.Name+" quits")
 				outputProvider.Write("message", "Game Over!")
@@ -125,4 +137,17 @@ func (g *Game) Print(player *Player) {
 	fmt.Printf("%s's Hand:\r\n", player.Name)
 	player.Hand.Print()
 	fmt.Printf("Deck size: %d\r\n", g.Deck.Size)
+}
+
+func (g *Game) ValidadeGame() {
+	numberCardsWithPlayers := 0
+	for i := range g.Players {
+		numberCardsWithPlayers += len(g.Players[i].Hand.Cards)
+	}
+	totalCardsGame := numberCardsWithPlayers + g.Deck.Size + len(g.Table.Cards)
+
+	if uint8(totalCardsGame) == uint8(g.Config.TotalCards) {
+		return
+	}
+	log.Fatalf("ERROR: Card leek. Current total cards: %d, expected: %d", totalCardsGame, g.Config.TotalCards)
 }

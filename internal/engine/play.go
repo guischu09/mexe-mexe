@@ -1,6 +1,6 @@
 package engine
 
-import "fmt"
+import "log"
 
 type AvailablePlay string
 
@@ -15,6 +15,7 @@ const (
 
 type Play interface {
 	GetName() AvailablePlay
+	GetCards() []*Card
 }
 
 type QuitPlay struct {
@@ -23,6 +24,10 @@ type QuitPlay struct {
 
 func (q QuitPlay) GetName() AvailablePlay {
 	return QUIT
+}
+func (p QuitPlay) GetCards() []*Card {
+	log.Println("No cards used for this play")
+	return nil
 }
 
 func NewQuitPlay(command string) QuitPlay {
@@ -39,7 +44,11 @@ func (p EndTurnPlay) GetName() AvailablePlay {
 	return END_TURN
 }
 
-func NewPassPlay(command string) EndTurnPlay {
+func (p EndTurnPlay) GetCards() []*Card {
+	log.Println("No cards used for this play")
+	return nil
+}
+func NewEndTurnPlay(command string) EndTurnPlay {
 	return EndTurnPlay{
 		Command: command,
 	}
@@ -47,11 +56,21 @@ func NewPassPlay(command string) EndTurnPlay {
 
 type MeldPlay struct {
 	Command string
+	Cards   []*Card
 }
 
-func NewMeldPlay(command string) MeldPlay {
+func (m MeldPlay) GetName() AvailablePlay {
+	return PLAY_MELD
+}
+
+func (m MeldPlay) GetCards() []*Card {
+	return m.Cards
+}
+
+func NewMeldPlay(command string, cards []*Card) MeldPlay {
 	return MeldPlay{
 		Command: command,
+		Cards:   cards,
 	}
 }
 
@@ -61,6 +80,10 @@ type DrawCardPlay struct {
 
 func (d DrawCardPlay) GetName() AvailablePlay {
 	return DRAW_CARD
+}
+func (p DrawCardPlay) GetCards() []*Card {
+	log.Println("No cards used for this play")
+	return nil
 }
 
 func NewDrawCardPlay(command string) DrawCardPlay {
@@ -73,8 +96,7 @@ func IsValid(turnState *TurnState, play Play, outputProvider OutputProvider) boo
 	switch play.GetName() {
 
 	case PLAY_MELD:
-		outputProvider.Write(string(PLAY_MELD), "Not implemented")
-		return false
+		return true
 
 	case END_TURN:
 
@@ -112,7 +134,12 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 	switch play.GetName() {
 
 	case PLAY_MELD:
-		fmt.Println("Not implemented")
+		for _, card := range play.GetCards() {
+			if player.Hand.Contains(card) {
+				player.Hand.RemoveCard(card)
+				table.AddCard(card)
+			}
+		}
 		return
 
 	case DRAW_CARD:

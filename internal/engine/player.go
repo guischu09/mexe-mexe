@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"time"
 )
 
 const MAX_BUFFER_SIZE = 3
@@ -65,55 +64,27 @@ func (p *Player) UpdatePoints(points uint32) {
 
 func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProvider OutputProvider) AvailablePlay {
 
-	fmt.Printf("%s's turn.\r\n", p.Name)
 	turnState := NewTurnState()
 
 	for {
-		play := inputProvider.GetPlay(table, p.Hand)
+		play := inputProvider.GetPlay(table, p.Hand, p.Name, turnState)
 		if IsValid(turnState, play, outputProvider) {
 			MakePlay(play, deck, table, p, outputProvider)
 
 			if play.GetName() == DRAW_CARD {
 				turnState.Update(true, false)
-				fmt.Println("You can now play a meld or end your turn.")
 				continue
 			}
+
+			if play.GetName() == PLAY_MELD {
+				turnState.Update(false, true)
+				continue
+			}
+
 			return play.GetName()
 
 		} else {
 			fmt.Println("Invalid play! Please try again.")
 		}
 	}
-}
-
-type ClearTimerCC struct {
-	Timeout time.Time
-}
-
-func NewClearTimerCC() ClearTimerCC {
-	return ClearTimerCC{
-		Timeout: time.Now(),
-	}
-}
-func (c *ClearTimerCC) Reset() {
-	c.Timeout = time.Now()
-}
-func (c *ClearTimerCC) IsExpired(expirationTime time.Duration) bool {
-	return time.Since(c.Timeout) > expirationTime*time.Millisecond
-}
-
-type CmdTimer struct {
-	Timeout time.Time
-}
-
-func NewCmdTimer() CmdTimer {
-	return CmdTimer{
-		Timeout: time.Now(),
-	}
-}
-func (c *CmdTimer) Reset() {
-	c.Timeout = time.Now()
-}
-func (c *CmdTimer) IsExpired(expirationTime time.Duration) bool {
-	return time.Since(c.Timeout) > expirationTime*time.Second
 }
