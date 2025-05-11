@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mexemexe/internal/server"
 	"net/url"
 
 	"github.com/gorilla/websocket"
@@ -11,14 +12,15 @@ import (
 
 var addr = flag.String("addr", "localhost:8888", "http service address")
 
-type JoinServerMessage struct {
-	Username string `json:"username"`
-}
-
 func main() {
 
 	flag.Parse()
 	log.SetFlags(0)
+
+	var username string
+	fmt.Println("Lets play mexe-mexe!")
+	fmt.Println("To join a game room, please enter your username:")
+	fmt.Scanf("%s", &username)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	log.Printf("connecting to %s\n", u.String())
@@ -29,12 +31,7 @@ func main() {
 	}
 	defer ws.Close()
 
-	var username string
-	fmt.Println("Lets play mexe-mexe!")
-	fmt.Println("To join game room, please enter your username:")
-	fmt.Scanf("%s", &username)
-
-	joinMessage := JoinServerMessage{
+	joinMessage := server.JoinServerMessage{
 		Username: username,
 	}
 	err = ws.WriteJSON(joinMessage)
@@ -50,5 +47,26 @@ func main() {
 		return
 	}
 	fmt.Println(msg)
+
+	startGameMessage := server.StartGameMessage{
+		Type:    "start",
+		Context: "test",
+	}
+
+	err = ws.WriteJSON(startGameMessage)
+	if err != nil {
+		log.Printf("error writing to websocket: %v", err)
+		return
+	}
+
+	for {
+		var msg string
+		err = ws.ReadJSON(&msg)
+		if err != nil {
+			log.Printf("error: %v", err)
+			break
+		}
+		fmt.Println(msg)
+	}
 
 }

@@ -16,8 +16,11 @@ func main() {
 		TotalCards:        uint8(engine.TOTAL_DECK_SIZE),
 	}
 
-	game := engine.NewGame(gameConfig)
-	if !game.Start() {
+	inputProvider := engine.TerminalInputProvider{}
+	outputProvider := engine.TerminalOutputProvider{}
+
+	game := engine.NewGame(&gameConfig)
+	if !game.Start(inputProvider, outputProvider) {
 		game.Close()
 	}
 

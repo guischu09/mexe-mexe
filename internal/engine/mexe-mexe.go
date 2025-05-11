@@ -40,35 +40,46 @@ type GameConfig struct {
 	TotalCards        uint8
 }
 
+const NUM_PLAYERS = 2
+const NUM_CARDS = 21
+
+func NewGameConfig(playersNames []string) *GameConfig {
+	gameConfig := GameConfig{
+		Seed:              UNIQUE_SHUFFLE_SEED,
+		PlayersName:       playersNames,
+		NumPlayers:        uint8(len(playersNames)),
+		NumCards:          NUM_CARDS,
+		RandomPlayerOrder: true,
+		TotalCards:        uint8(TOTAL_DECK_SIZE),
+	}
+	return &gameConfig
+}
+
 type Game struct {
-	Config  GameConfig
+	Config  *GameConfig
 	Deck    *Deck
 	Table   Table
 	Players []Player
 }
 
-func NewGame(config GameConfig) *Game {
+func NewEmptyGame(config *GameConfig) *Game {
+	return &Game{
+		Config:  config,
+		Deck:    NewDeck(config.Seed),
+		Table:   Table{},
+		Players: nil,
+	}
+}
+
+func NewGame(config *GameConfig) *Game {
 
 	// Implement input validation for a game to start, to avoid starting games with 10 players.
 	players := make([]Player, config.NumPlayers)
 	deck := NewDeck(config.Seed)
 
-	for i, card1 := range deck.Cards {
-		for j, card2 := range deck.Cards {
-			if i != j && card1.UUID == card2.UUID {
-				fmt.Printf("Detected collision of UUIDs. UUID: %d, Symbol: %s and Symbol: %s\n", card1.UUID, string(card1.Symbol), string(card2.Symbol))
-			}
-		}
-	}
-
 	for i := 0; i < int(config.NumPlayers); i++ {
 		newHand := NewHandFromDeck(deck, config.NumCards)
 		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
-
-		// fmt.Printf("%s's Hand:\r\n", players[i].Name)
-		// for _, card := range newHand.Cards {
-		// 	fmt.Printf("UUID: %d, Symbol: %s\r\n", card.UUID, string(card.Symbol))
-		// }
 	}
 
 	if config.RandomPlayerOrder {
@@ -78,7 +89,6 @@ func NewGame(config GameConfig) *Game {
 			players[i], players[j] = players[j], players[i]
 		})
 	}
-
 	return &Game{
 		Config:  config,
 		Deck:    deck,
@@ -86,18 +96,27 @@ func NewGame(config GameConfig) *Game {
 	}
 }
 
-func (g *Game) Start() bool {
+func (g *Game) AddPlayer(player Player) {
+	g.Players = append(g.Players, player)
+}
+
+func (g *Game) ShufflePlayers() {
+	pcgSource := rand.NewPCG(g.Deck.Seed, g.Deck.Seed)
+	rng := rand.New(pcgSource)
+	rng.Shuffle(len(g.Players), func(i, j int) {
+		g.Players[i], g.Players[j] = g.Players[j], g.Players[i]
+	})
+}
+
+func (g *Game) Start(inputProvider InputProvider, outputProvider OutputProvider) bool {
 
 	fmt.Printf("Game started!\r\n")
-
-	inputProvider := TerminalInputProvider{}
-	outputProvider := TerminalOutputProvider{}
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			g.ValidadeGame()
 			player := &g.Players[i]
-			availablePlay := player.PlayTurn(g.Deck, &g.Table, &inputProvider, &outputProvider)
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider, outputProvider)
 
 			switch availablePlay {
 			case QUIT:

@@ -10,7 +10,7 @@ type OutputProvider interface {
 
 type TerminalOutputProvider struct{}
 
-func (t *TerminalOutputProvider) Write(messageType string, data interface{}) {
+func (t TerminalOutputProvider) Write(messageType string, data interface{}) {
 	switch messageType {
 
 	case "message":
