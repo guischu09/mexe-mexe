@@ -42,7 +42,7 @@ type GameConfig struct {
 
 type Game struct {
 	Config  GameConfig
-	Deck    Deck
+	Deck    *Deck
 	Table   Table
 	Players []Player
 }
@@ -53,9 +53,22 @@ func NewGame(config GameConfig) *Game {
 	players := make([]Player, config.NumPlayers)
 	deck := NewDeck(config.Seed)
 
+	for i, card1 := range deck.Cards {
+		for j, card2 := range deck.Cards {
+			if i != j && card1.UUID == card2.UUID {
+				fmt.Printf("Detected collision of UUIDs. UUID: %d, Symbol: %s and Symbol: %s\n", card1.UUID, string(card1.Symbol), string(card2.Symbol))
+			}
+		}
+	}
+
 	for i := 0; i < int(config.NumPlayers); i++ {
-		newHand := NewHandFromDeck(&deck, config.NumCards)
+		newHand := NewHandFromDeck(deck, config.NumCards)
 		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
+
+		// fmt.Printf("%s's Hand:\r\n", players[i].Name)
+		// for _, card := range newHand.Cards {
+		// 	fmt.Printf("UUID: %d, Symbol: %s\r\n", card.UUID, string(card.Symbol))
+		// }
 	}
 
 	if config.RandomPlayerOrder {
@@ -84,7 +97,7 @@ func (g *Game) Start() bool {
 		for i := range g.Players {
 			g.ValidadeGame()
 			player := &g.Players[i]
-			availablePlay := player.PlayTurn(&g.Deck, &g.Table, &inputProvider, &outputProvider)
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, &inputProvider, &outputProvider)
 
 			switch availablePlay {
 			case QUIT:

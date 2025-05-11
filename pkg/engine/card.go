@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type CardSuit string
@@ -129,18 +130,35 @@ func (c *Card) Print() {
 	fmt.Println(c.Symbol)
 }
 
+func (c *Card) PrintUUID() {
+	fmt.Printf("UUID: %d, Symbol: %s\r\n", c.UUID, string(c.Symbol))
+}
+
+// Global UUID counter with mutex for thread safety
+var cardUUIDCounter uint8 = 0
+var cardUUIDMutex sync.Mutex
+
+// Thread-safe way to get the next unique card ID
+func getNextCardUUID() uint8 {
+	cardUUIDMutex.Lock()
+	defer cardUUIDMutex.Unlock()
+
+	id := cardUUIDCounter
+	cardUUIDCounter++
+	return id
+}
+
 func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) (*Card, error) {
-	// Fix the condition for hearts and diamonds
 	if (suit == HEART || suit == DIAMOND) && color != RED {
 		return &Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
-
-	// Fix the condition for clubs and spades
 	if (suit == CLUB || suit == SPADE) && color != BLACK {
 		return &Card{}, errors.New("Cannot create card with suit " + string(suit) + " and color " + string(color))
 	}
 
 	fullCardName := strings.ToLower(name + " of " + string(suit) + "s" + " " + string(symbol))
+
+	uuid := getNextCardUUID()
 
 	newCard := Card{
 		Name:   fullCardName,
@@ -148,6 +166,7 @@ func NewCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, col
 		Value:  value,
 		Symbol: symbol,
 		Color:  color,
+		UUID:   uuid,
 	}
 
 	return &newCard, nil

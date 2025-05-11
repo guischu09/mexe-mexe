@@ -63,7 +63,7 @@ func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
 
 func (r *Rederer) UserInputDisplay() Play {
 
-	fmt.Print("\033[H\033[2J") // Clear screen
+	fmt.Print("\033[H\033[2J")
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
@@ -154,21 +154,43 @@ func (r *Rederer) UserInputDisplay() Play {
 				}
 
 				var selectedMeldCards []*Card
+				var handCardUUIDs = make(map[uint8]bool) // Track hand card UUIDs
+
+				// First, build a map of all hand card UUIDs for quick lookup
+				for _, card := range r.Hand.Cards {
+					handCardUUIDs[card.UUID] = true
+				}
+
+				// Track which selected cards are from hand vs table
+				var handSelectedCards []*Card
+				var tableSelectedCards []*Card
+
 				for i, isSelected := range r.selectedCards {
 					if isSelected {
-						selectedMeldCards = append(selectedMeldCards, allCards[i])
+						card := allCards[i]
+						selectedMeldCards = append(selectedMeldCards, card)
+
+						// Check if this card is from the hand by UUID
+						if handCardUUIDs[card.UUID] {
+							handSelectedCards = append(handSelectedCards, card)
+						} else {
+							tableSelectedCards = append(tableSelectedCards, card)
+						}
 					}
 				}
 
+				// Validate the combined meld
 				_, err := MakeMeldFromCards(selectedMeldCards)
 				if err != nil {
 					statusMessage = fmt.Sprintf("%s", err)
 					continue
 				}
+
 				fmt.Print("\033[?25h")     // Show cursor before returning
 				fmt.Print("\033[H\033[2J") // Clear screen
 
-				return NewMeldPlay("m", selectedMeldCards)
+				// Only pass the hand cards to be moved
+				return NewMeldPlay("m", handSelectedCards)
 			}
 		} else if n == 3 && buffer[0] == 27 && buffer[1] == 91 {
 			switch buffer[2] {
@@ -255,6 +277,7 @@ func (r *Rederer) RenderScreen(allCards []*Card, statusMessage string) {
 	fmt.Print("\033[H")
 	fmt.Print(screenBuffer.String())
 	fmt.Print("\033[J")
+
 }
 
 // New helper functions that return strings instead of printing directly

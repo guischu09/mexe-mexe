@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync"
 	"time"
 )
 
@@ -11,125 +12,139 @@ const NO_SHUFFLE_SEED uint64 = 0
 const UNIQUE_SHUFFLE_SEED uint64 = 1
 
 type Deck struct {
-	Cards []*Card
-	Size  int
-	Seed  uint64
+	Cards       []*Card
+	Size        int
+	Seed        uint64
+	uuidCounter uint8
+	mu          sync.Mutex // for thread safety if needed
 }
 
-var TWO_OF_SPADES, _ = NewCard(TWO, SPADE, TWO_VALUE, TWO_SPADE_SYMBOL, BLACK)
-var THREE_OF_SPADES, _ = NewCard(THREE, SPADE, THREE_VALUE, THREE_SPADE_SYMBOL, BLACK)
-var FOUR_OF_SPADES, _ = NewCard(FOUR, SPADE, FOUR_VALUE, FOUR_SPADE_SYMBOL, BLACK)
-var FIVE_OF_SPADES, _ = NewCard(FIVE, SPADE, FIVE_VALUE, FIVE_SPADE_SYMBOL, BLACK)
-var SIX_OF_SPADES, _ = NewCard(SIX, SPADE, SIX_VALUE, SIX_SPADE_SYMBOL, BLACK)
-var SEVEN_OF_SPADES, _ = NewCard(SEVEN, SPADE, SEVEN_VALUE, SEVEN_SPADE_SYMBOL, BLACK)
-var EIGHT_OF_SPADES, _ = NewCard(EIGHT, SPADE, EIGHT_VALUE, EIGHT_SPADE_SYMBOL, BLACK)
-var NINE_OF_SPADES, _ = NewCard(NINE, SPADE, NINE_VALUE, NINE_SPADE_SYMBOL, BLACK)
-var TEN_OF_SPADES, _ = NewCard(TEN, SPADE, TEN_VALUE, TEN_SPADE_SYMBOL, BLACK)
-var JACK_OF_SPADES, _ = NewCard(JACK, SPADE, JACK_VALUE, JACK_SPADE_SYMBOL, BLACK)
-var QUEEN_OF_SPADES, _ = NewCard(QUEEN, SPADE, QUEEN_VALUE, QUEEN_SPADE_SYMBOL, BLACK)
-var KING_OF_SPADES, _ = NewCard(KING, SPADE, KING_VALUE, KING_SPADE_SYMBOL, BLACK)
-var ACE_OF_SPADES, _ = NewCard(ACE, SPADE, ACE_VALUE, ACE_SPADE_SYMBOL, BLACK)
+// Card, CardSuit, CardColor, CardValue, CardSymbol, and all constants should be defined as in your original code.
 
-var TWO_OF_DIAMONDS, _ = NewCard(TWO, DIAMOND, TWO_VALUE, TWO_DIAMOND_SYMBOL, RED)
-var THREE_OF_DIAMONDS, _ = NewCard(THREE, DIAMOND, THREE_VALUE, THREE_DIAMOND_SYMBOL, RED)
-var FOUR_OF_DIAMONDS, _ = NewCard(FOUR, DIAMOND, FOUR_VALUE, FOUR_DIAMOND_SYMBOL, RED)
-var FIVE_OF_DIAMONDS, _ = NewCard(FIVE, DIAMOND, FIVE_VALUE, FIVE_DIAMOND_SYMBOL, RED)
-var SIX_OF_DIAMONDS, _ = NewCard(SIX, DIAMOND, SIX_VALUE, SIX_DIAMOND_SYMBOL, RED)
-var SEVEN_OF_DIAMONDS, _ = NewCard(SEVEN, DIAMOND, SEVEN_VALUE, SEVEN_DIAMOND_SYMBOL, RED)
-var EIGHT_OF_DIAMONDS, _ = NewCard(EIGHT, DIAMOND, EIGHT_VALUE, EIGHT_DIAMOND_SYMBOL, RED)
-var NINE_OF_DIAMONDS, _ = NewCard(NINE, DIAMOND, NINE_VALUE, NINE_DIAMOND_SYMBOL, RED)
-var TEN_OF_DIAMONDS, _ = NewCard(TEN, DIAMOND, TEN_VALUE, TEN_DIAMOND_SYMBOL, RED)
-var JACK_OF_DIAMONDS, _ = NewCard(JACK, DIAMOND, JACK_VALUE, JACK_DIAMOND_SYMBOL, RED)
-var QUEEN_OF_DIAMONDS, _ = NewCard(QUEEN, DIAMOND, QUEEN_VALUE, QUEEN_DIAMOND_SYMBOL, RED)
-var KING_OF_DIAMONDS, _ = NewCard(KING, DIAMOND, KING_VALUE, KING_DIAMOND_SYMBOL, RED)
-var ACE_OF_DIAMONDS, _ = NewCard(ACE, DIAMOND, ACE_VALUE, ACE_DIAMOND_SYMBOL, RED)
+func (d *Deck) getNextCardUUID() uint8 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.uuidCounter++
+	return d.uuidCounter
+}
 
-var TWO_OF_HEARTS, _ = NewCard(TWO, HEART, TWO_VALUE, TWO_HEART_SYMBOL, RED)
-var THREE_OF_HEARTS, _ = NewCard(THREE, HEART, THREE_VALUE, THREE_HEART_SYMBOL, RED)
-var FOUR_OF_HEARTS, _ = NewCard(FOUR, HEART, FOUR_VALUE, FOUR_HEART_SYMBOL, RED)
-var FIVE_OF_HEARTS, _ = NewCard(FIVE, HEART, FIVE_VALUE, FIVE_HEART_SYMBOL, RED)
-var SIX_OF_HEARTS, _ = NewCard(SIX, HEART, SIX_VALUE, SIX_HEART_SYMBOL, RED)
-var SEVEN_OF_HEARTS, _ = NewCard(SEVEN, HEART, SEVEN_VALUE, SEVEN_HEART_SYMBOL, RED)
-var EIGHT_OF_HEARTS, _ = NewCard(EIGHT, HEART, EIGHT_VALUE, EIGHT_HEART_SYMBOL, RED)
-var NINE_OF_HEARTS, _ = NewCard(NINE, HEART, NINE_VALUE, NINE_HEART_SYMBOL, RED)
-var TEN_OF_HEARTS, _ = NewCard(TEN, HEART, TEN_VALUE, TEN_HEART_SYMBOL, RED)
-var JACK_OF_HEARTS, _ = NewCard(JACK, HEART, JACK_VALUE, JACK_HEART_SYMBOL, RED)
-var QUEEN_OF_HEARTS, _ = NewCard(QUEEN, HEART, QUEEN_VALUE, QUEEN_HEART_SYMBOL, RED)
-var KING_OF_HEARTS, _ = NewCard(KING, HEART, KING_VALUE, KING_HEART_SYMBOL, RED)
-var ACE_OF_HEARTS, _ = NewCard(ACE, HEART, ACE_VALUE, ACE_HEART_SYMBOL, RED)
+func (d *Deck) newCard(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) *Card {
+	uuid := d.getNextCardUUID()
+	fullCardName := name + " of " + string(suit) + "s " + string(symbol)
+	return &Card{
+		Name:   fullCardName,
+		Suit:   suit,
+		Value:  value,
+		Symbol: symbol,
+		Color:  color,
+		UUID:   uuid,
+	}
+}
 
-var TWO_OF_CLUBS, _ = NewCard(TWO, CLUB, TWO_VALUE, TWO_CLUB_SYMBOL, BLACK)
-var THREE_OF_CLUBS, _ = NewCard(THREE, CLUB, THREE_VALUE, THREE_CLUB_SYMBOL, BLACK)
-var FOUR_OF_CLUBS, _ = NewCard(FOUR, CLUB, FOUR_VALUE, FOUR_CLUB_SYMBOL, BLACK)
-var FIVE_OF_CLUBS, _ = NewCard(FIVE, CLUB, FIVE_VALUE, FIVE_CLUB_SYMBOL, BLACK)
-var SIX_OF_CLUBS, _ = NewCard(SIX, CLUB, SIX_VALUE, SIX_CLUB_SYMBOL, BLACK)
-var SEVEN_OF_CLUBS, _ = NewCard(SEVEN, CLUB, SEVEN_VALUE, SEVEN_CLUB_SYMBOL, BLACK)
-var EIGHT_OF_CLUBS, _ = NewCard(EIGHT, CLUB, EIGHT_VALUE, EIGHT_CLUB_SYMBOL, BLACK)
-var NINE_OF_CLUBS, _ = NewCard(NINE, CLUB, NINE_VALUE, NINE_CLUB_SYMBOL, BLACK)
-var TEN_OF_CLUBS, _ = NewCard(TEN, CLUB, TEN_VALUE, TEN_CLUB_SYMBOL, BLACK)
-var JACK_OF_CLUBS, _ = NewCard(JACK, CLUB, JACK_VALUE, JACK_CLUB_SYMBOL, BLACK)
-var QUEEN_OF_CLUBS, _ = NewCard(QUEEN, CLUB, QUEEN_VALUE, QUEEN_CLUB_SYMBOL, BLACK)
-var KING_OF_CLUBS, _ = NewCard(KING, CLUB, KING_VALUE, KING_CLUB_SYMBOL, BLACK)
-var ACE_OF_CLUBS, _ = NewCard(ACE, CLUB, ACE_VALUE, ACE_CLUB_SYMBOL, BLACK)
-
-func NewDeck(seed uint64) Deck {
-	var cards []*Card
-
-	cards = append(cards, TWO_OF_SPADES, THREE_OF_SPADES, FOUR_OF_SPADES, FIVE_OF_SPADES, SIX_OF_SPADES, SEVEN_OF_SPADES, EIGHT_OF_SPADES, NINE_OF_SPADES, TEN_OF_SPADES, JACK_OF_SPADES, QUEEN_OF_SPADES, KING_OF_SPADES, ACE_OF_SPADES)
-	cards = append(cards, TWO_OF_SPADES, THREE_OF_SPADES, FOUR_OF_SPADES, FIVE_OF_SPADES, SIX_OF_SPADES, SEVEN_OF_SPADES, EIGHT_OF_SPADES, NINE_OF_SPADES, TEN_OF_SPADES, JACK_OF_SPADES, QUEEN_OF_SPADES, KING_OF_SPADES, ACE_OF_SPADES)
-
-	cards = append(cards, TWO_OF_DIAMONDS, THREE_OF_DIAMONDS, FOUR_OF_DIAMONDS, FIVE_OF_DIAMONDS, SIX_OF_DIAMONDS, SEVEN_OF_DIAMONDS, EIGHT_OF_DIAMONDS, NINE_OF_DIAMONDS, TEN_OF_DIAMONDS, JACK_OF_DIAMONDS, QUEEN_OF_DIAMONDS, KING_OF_DIAMONDS, ACE_OF_DIAMONDS)
-	cards = append(cards, TWO_OF_DIAMONDS, THREE_OF_DIAMONDS, FOUR_OF_DIAMONDS, FIVE_OF_DIAMONDS, SIX_OF_DIAMONDS, SEVEN_OF_DIAMONDS, EIGHT_OF_DIAMONDS, NINE_OF_DIAMONDS, TEN_OF_DIAMONDS, JACK_OF_DIAMONDS, QUEEN_OF_DIAMONDS, KING_OF_DIAMONDS, ACE_OF_DIAMONDS)
-
-	cards = append(cards, TWO_OF_HEARTS, THREE_OF_HEARTS, FOUR_OF_HEARTS, FIVE_OF_HEARTS, SIX_OF_HEARTS, SEVEN_OF_HEARTS, EIGHT_OF_HEARTS, NINE_OF_HEARTS, TEN_OF_HEARTS, JACK_OF_HEARTS, QUEEN_OF_HEARTS, KING_OF_HEARTS, ACE_OF_HEARTS)
-	cards = append(cards, TWO_OF_HEARTS, THREE_OF_HEARTS, FOUR_OF_HEARTS, FIVE_OF_HEARTS, SIX_OF_HEARTS, SEVEN_OF_HEARTS, EIGHT_OF_HEARTS, NINE_OF_HEARTS, TEN_OF_HEARTS, JACK_OF_HEARTS, QUEEN_OF_HEARTS, KING_OF_HEARTS, ACE_OF_HEARTS)
-
-	cards = append(cards, TWO_OF_CLUBS, THREE_OF_CLUBS, FOUR_OF_CLUBS, FIVE_OF_CLUBS, SIX_OF_CLUBS, SEVEN_OF_CLUBS, EIGHT_OF_CLUBS, NINE_OF_CLUBS, TEN_OF_CLUBS, JACK_OF_CLUBS, QUEEN_OF_CLUBS, KING_OF_CLUBS, ACE_OF_CLUBS)
-	cards = append(cards, TWO_OF_CLUBS, THREE_OF_CLUBS, FOUR_OF_CLUBS, FIVE_OF_CLUBS, SIX_OF_CLUBS, SEVEN_OF_CLUBS, EIGHT_OF_CLUBS, NINE_OF_CLUBS, TEN_OF_CLUBS, JACK_OF_CLUBS, QUEEN_OF_CLUBS, KING_OF_CLUBS, ACE_OF_CLUBS)
-
-	for i := range cards {
-		cards[i].UUID = uint8(i)
+func NewDeck(seed uint64) *Deck {
+	deck := Deck{
+		Cards:       []*Card{},
+		Size:        0,
+		Seed:        seed,
+		uuidCounter: 0,
 	}
 
+	// Helper to add two of each card
+	add := func(name string, suit CardSuit, value CardValue, symbol CardSymbol, color CardColor) {
+		deck.Cards = append(deck.Cards, deck.newCard(name, suit, value, symbol, color))
+		deck.Cards = append(deck.Cards, deck.newCard(name, suit, value, symbol, color))
+	}
+
+	// Spades
+	add(TWO, SPADE, TWO_VALUE, TWO_SPADE_SYMBOL, BLACK)
+	add(THREE, SPADE, THREE_VALUE, THREE_SPADE_SYMBOL, BLACK)
+	add(FOUR, SPADE, FOUR_VALUE, FOUR_SPADE_SYMBOL, BLACK)
+	add(FIVE, SPADE, FIVE_VALUE, FIVE_SPADE_SYMBOL, BLACK)
+	add(SIX, SPADE, SIX_VALUE, SIX_SPADE_SYMBOL, BLACK)
+	add(SEVEN, SPADE, SEVEN_VALUE, SEVEN_SPADE_SYMBOL, BLACK)
+	add(EIGHT, SPADE, EIGHT_VALUE, EIGHT_SPADE_SYMBOL, BLACK)
+	add(NINE, SPADE, NINE_VALUE, NINE_SPADE_SYMBOL, BLACK)
+	add(TEN, SPADE, TEN_VALUE, TEN_SPADE_SYMBOL, BLACK)
+	add(JACK, SPADE, JACK_VALUE, JACK_SPADE_SYMBOL, BLACK)
+	add(QUEEN, SPADE, QUEEN_VALUE, QUEEN_SPADE_SYMBOL, BLACK)
+	add(KING, SPADE, KING_VALUE, KING_SPADE_SYMBOL, BLACK)
+	add(ACE, SPADE, ACE_VALUE, ACE_SPADE_SYMBOL, BLACK)
+
+	// Diamonds
+	add(TWO, DIAMOND, TWO_VALUE, TWO_DIAMOND_SYMBOL, RED)
+	add(THREE, DIAMOND, THREE_VALUE, THREE_DIAMOND_SYMBOL, RED)
+	add(FOUR, DIAMOND, FOUR_VALUE, FOUR_DIAMOND_SYMBOL, RED)
+	add(FIVE, DIAMOND, FIVE_VALUE, FIVE_DIAMOND_SYMBOL, RED)
+	add(SIX, DIAMOND, SIX_VALUE, SIX_DIAMOND_SYMBOL, RED)
+	add(SEVEN, DIAMOND, SEVEN_VALUE, SEVEN_DIAMOND_SYMBOL, RED)
+	add(EIGHT, DIAMOND, EIGHT_VALUE, EIGHT_DIAMOND_SYMBOL, RED)
+	add(NINE, DIAMOND, NINE_VALUE, NINE_DIAMOND_SYMBOL, RED)
+	add(TEN, DIAMOND, TEN_VALUE, TEN_DIAMOND_SYMBOL, RED)
+	add(JACK, DIAMOND, JACK_VALUE, JACK_DIAMOND_SYMBOL, RED)
+	add(QUEEN, DIAMOND, QUEEN_VALUE, QUEEN_DIAMOND_SYMBOL, RED)
+	add(KING, DIAMOND, KING_VALUE, KING_DIAMOND_SYMBOL, RED)
+	add(ACE, DIAMOND, ACE_VALUE, ACE_DIAMOND_SYMBOL, RED)
+
+	// Hearts
+	add(TWO, HEART, TWO_VALUE, TWO_HEART_SYMBOL, RED)
+	add(THREE, HEART, THREE_VALUE, THREE_HEART_SYMBOL, RED)
+	add(FOUR, HEART, FOUR_VALUE, FOUR_HEART_SYMBOL, RED)
+	add(FIVE, HEART, FIVE_VALUE, FIVE_HEART_SYMBOL, RED)
+	add(SIX, HEART, SIX_VALUE, SIX_HEART_SYMBOL, RED)
+	add(SEVEN, HEART, SEVEN_VALUE, SEVEN_HEART_SYMBOL, RED)
+	add(EIGHT, HEART, EIGHT_VALUE, EIGHT_HEART_SYMBOL, RED)
+	add(NINE, HEART, NINE_VALUE, NINE_HEART_SYMBOL, RED)
+	add(TEN, HEART, TEN_VALUE, TEN_HEART_SYMBOL, RED)
+	add(JACK, HEART, JACK_VALUE, JACK_HEART_SYMBOL, RED)
+	add(QUEEN, HEART, QUEEN_VALUE, QUEEN_HEART_SYMBOL, RED)
+	add(KING, HEART, KING_VALUE, KING_HEART_SYMBOL, RED)
+	add(ACE, HEART, ACE_VALUE, ACE_HEART_SYMBOL, RED)
+
+	// Clubs
+	add(TWO, CLUB, TWO_VALUE, TWO_CLUB_SYMBOL, BLACK)
+	add(THREE, CLUB, THREE_VALUE, THREE_CLUB_SYMBOL, BLACK)
+	add(FOUR, CLUB, FOUR_VALUE, FOUR_CLUB_SYMBOL, BLACK)
+	add(FIVE, CLUB, FIVE_VALUE, FIVE_CLUB_SYMBOL, BLACK)
+	add(SIX, CLUB, SIX_VALUE, SIX_CLUB_SYMBOL, BLACK)
+	add(SEVEN, CLUB, SEVEN_VALUE, SEVEN_CLUB_SYMBOL, BLACK)
+	add(EIGHT, CLUB, EIGHT_VALUE, EIGHT_CLUB_SYMBOL, BLACK)
+	add(NINE, CLUB, NINE_VALUE, NINE_CLUB_SYMBOL, BLACK)
+	add(TEN, CLUB, TEN_VALUE, TEN_CLUB_SYMBOL, BLACK)
+	add(JACK, CLUB, JACK_VALUE, JACK_CLUB_SYMBOL, BLACK)
+	add(QUEEN, CLUB, QUEEN_VALUE, QUEEN_CLUB_SYMBOL, BLACK)
+	add(KING, CLUB, KING_VALUE, KING_CLUB_SYMBOL, BLACK)
+	add(ACE, CLUB, ACE_VALUE, ACE_CLUB_SYMBOL, BLACK)
+
+	// Verify we have the correct number of cards
+	if len(deck.Cards) != int(TOTAL_DECK_SIZE) {
+		panic(fmt.Sprintf("Expected %d cards in deck, got %d", TOTAL_DECK_SIZE, len(deck.Cards)))
+	}
+
+	// Shuffle logic
 	if seed == NO_SHUFFLE_SEED {
-		gameDeck := Deck{
-			Cards: cards,
-			Size:  len(cards),
-			Seed:  seed,
-		}
-		return gameDeck
+		deck.Size = len(deck.Cards)
+		return &deck
 	}
 
 	if seed == UNIQUE_SHUFFLE_SEED {
 		seedTime := uint64(time.Now().UnixNano())
-
 		pcgSource := rand.NewPCG(seedTime, seedTime)
 		rng := rand.New(pcgSource)
-
-		rng.Shuffle(len(cards), func(i, j int) {
-			cards[i], cards[j] = cards[j], cards[i]
+		rng.Shuffle(len(deck.Cards), func(i, j int) {
+			deck.Cards[i], deck.Cards[j] = deck.Cards[j], deck.Cards[i]
 		})
-		gameDeck := Deck{
-			Cards: cards,
-			Size:  len(cards),
-			Seed:  seedTime,
-		}
-		return gameDeck
+		deck.Size = len(deck.Cards)
+		deck.Seed = seedTime
+		return &deck
 	}
 
 	pcgSource := rand.NewPCG(seed, seed)
 	rng := rand.New(pcgSource)
-	rng.Shuffle(len(cards), func(i, j int) {
-		cards[i], cards[j] = cards[j], cards[i]
+	rng.Shuffle(len(deck.Cards), func(i, j int) {
+		deck.Cards[i], deck.Cards[j] = deck.Cards[j], deck.Cards[i]
 	})
-
-	gameDeck := Deck{
-		Cards: cards,
-		Size:  len(cards),
-		Seed:  seed,
-	}
-
-	return gameDeck
+	deck.Size = len(deck.Cards)
+	return &deck
 }
 
 func (g *Deck) Print() {
@@ -157,6 +172,11 @@ func (g *Deck) Contains(card *Card) bool {
 }
 
 func (g *Deck) DrawCard() *Card {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.Cards) == 0 {
+		return nil
+	}
 	card := g.Cards[0]
 	g.Cards = g.Cards[1:]
 	g.updateSize()
@@ -164,6 +184,8 @@ func (g *Deck) DrawCard() *Card {
 }
 
 func (g *Deck) RemoveCard(card *Card) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	for i := 0; i < len(g.Cards); i++ {
 		if g.Cards[i].UUID == card.UUID {
 			g.Cards = append(g.Cards[:i], g.Cards[i+1:]...)
