@@ -231,6 +231,7 @@ func (r *Rederer) RenderScreen(allCards []*Card, statusMessage string) {
 		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, r.selectedCards[tableOffset:],
 			r.currentPos >= tableOffset, r.currentPos-tableOffset)
 		screenBuffer.WriteString(tableOutput)
+		screenBuffer.WriteString("\r\n\r\n")
 	} else {
 		screenBuffer.WriteString("\r\n\r\n")
 	}
