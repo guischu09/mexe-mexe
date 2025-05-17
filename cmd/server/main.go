@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"mexemexe/internal/engine"
@@ -17,15 +16,17 @@ import (
 const SERVER_CAPACITY = 30
 
 type Server struct {
-	Clients map[*websocket.Conn]*Client
-	Rooms   map[string]*GameRoom
-	mu      sync.Mutex
+	Clients  map[*websocket.Conn]*Client
+	Rooms    map[string]*GameRoom
+	Capacity int
+	mu       sync.Mutex
 }
 
 func NewServer() *Server {
 	return &Server{
-		Clients: make(map[*websocket.Conn]*Client),
-		Rooms:   make(map[string]*GameRoom, SERVER_CAPACITY),
+		Clients:  make(map[*websocket.Conn]*Client),
+		Rooms:    make(map[string]*GameRoom, SERVER_CAPACITY),
+		Capacity: SERVER_CAPACITY,
 	}
 }
 
@@ -56,9 +57,9 @@ func (s *Server) RemoveRoom(room *GameRoom) {
 func (s *Server) SearchAvailableGameRoom(numPlayers uint8) (*GameRoom, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.Rooms) >= SERVER_CAPACITY {
-		return nil, errors.New("server at maximum capacity, cannot create new room")
-	}
+	// if len(s.Rooms) >= SERVER_CAPACITY {
+	// 	return nil, errors.New("server at maximum capacity, cannot create new room")
+	// }
 	for _, room := range s.Rooms {
 		if room != nil && !room.GameStarted && len(room.Clients) < int(numPlayers) {
 			log.Printf("Found available game room: %s", room.UUID)
@@ -66,6 +67,22 @@ func (s *Server) SearchAvailableGameRoom(numPlayers uint8) (*GameRoom, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (s *Server) GetCurrentCapacity() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.Clients)
+}
+
+func (s *Server) IsAtMaximumCapacity() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.Clients) >= s.Capacity
+}
+
+func (s *Server) AuthenticateUser(username string, ws *websocket.Conn) bool {
+	return true
 }
 
 var upgrader = websocket.Upgrader{
@@ -82,13 +99,15 @@ type Client struct {
 }
 
 func NewClient(ip string, port string, username string, uuid string, conn *websocket.Conn) *Client {
-	return &Client{
+	client := Client{
 		IP:       ip,
 		Port:     port,
 		Conn:     conn,
 		UUID:     uuid,
 		Username: username,
 	}
+	log.Println("New client created with UUID: " + uuid)
+	return &client
 }
 
 type GameRoom struct {
@@ -103,7 +122,7 @@ type GameRoom struct {
 
 func NewGameRoom() *GameRoom {
 	uuid := generateUniqueID()
-	return &GameRoom{
+	gameRoom := GameRoom{
 		UUID:        uuid,
 		Game:        nil,
 		Clients:     []*Client{},
@@ -111,6 +130,8 @@ func NewGameRoom() *GameRoom {
 		GameStarted: false,
 		RoomChannel: make(chan string),
 	}
+	log.Println("New game room created with UUID: " + uuid)
+	return &gameRoom
 }
 
 func (g *GameRoom) AddGame(game *engine.Game) {
@@ -154,23 +175,31 @@ func (g *GameRoom) IsFull() bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.NumPlayers > 2 {
+		// At some point just log this error on the server
 		log.Fatalf("ERROR: Game room is full. Cannot add more clients. Num players: %d", g.NumPlayers)
 	}
 	return g.NumPlayers == 2
 }
 
 func (g *GameRoom) StartGame() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.GameStarted = true
-	g.RoomChannel <- "Game started!"
-	go g.Game.Start()
+	fmt.Println("Game started!")
+	// g.mu.Lock()
+	// defer g.mu.Unlock()
+	// g.GameStarted = true
+	// g.RoomChannel <- "Game started!"
+	// go g.Game.Start()
 }
 
-// TODO: Implement
 func generateUniqueID() string {
 	return uuid.New().String()
 }
+
+type WebSocketInputProvider struct {
+	conn *websocket.Conn
+}
+
+// func (w *WebSocketInputProvider) GetPlay(table *engine.Table, hand *engine.Hand, playerName string, turnState *engine.TurnState) engine.Play {
+// }
 
 // parseRemoteAddr parses the remote address of a websocket connection into an IP and port
 func parseRemoteAddr(addr string) (string, string) {
@@ -182,27 +211,58 @@ func parseRemoteAddr(addr string) (string, string) {
 }
 
 func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
+	// Stablish a websocket connection
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("error: %v", err)
 	}
 	defer ws.Close()
 
-	log.Println("New connection established. Connecting Address: " + r.RemoteAddr)
+	log.Println("New connection established. Client connecting Address: " + r.RemoteAddr)
 
-	var msg server.JoinServerMessage
-	err = ws.ReadJSON(&msg)
+	// Read join message from client
+	var joinMsg server.JoinServerMessage
+	err = ws.ReadJSON(&joinMsg)
 	if err != nil {
 		log.Printf("error: %v", err)
 	}
 
+	// Check if server is at maximum capacity
+	if s.IsAtMaximumCapacity() {
+		var maxMsg server.MaxCapacityMessage
+		maxMsg.Message = "Server is at maximum capacity. Please try again later."
+		err = ws.WriteJSON(maxMsg)
+		if err != nil {
+			log.Printf("error writing to websocket: %v", err)
+			return
+		}
+		return
+	}
+	// Authenticate user:
+	log.Printf("Authenticating client from %s", r.RemoteAddr)
+	if !s.AuthenticateUser(joinMsg.Username, ws) {
+		log.Printf("Authentication failed for client from %s", r.RemoteAddr)
+		errorMsg := server.ErrorMessage{
+			Message: "Authentication failed. Please create an account and try again.",
+		}
+		err = ws.WriteJSON(errorMsg)
+		if err != nil {
+			log.Printf("error writing to websocket: %v", err)
+			return
+		}
+		return
+	}
+
+	// Create a new client and register it in the server
 	ip, port := parseRemoteAddr(r.RemoteAddr)
 	uuid := generateUniqueID()
+	newClient := NewClient(ip, port, joinMsg.Username, uuid, ws)
+	s.AddClient(ws, ip, port, joinMsg.Username, uuid)
 
-	newClient := NewClient(ip, port, msg.Username, uuid, ws)
-
-	s.AddClient(ws, ip, port, msg.Username, uuid)
-	err = ws.WriteJSON("Welcome to mexe-mexe.com!")
+	// Send welcome message to client
+	var welcomeMsg server.WelcomeMessage
+	welcomeMsg.Message = "Welcome to mexe-mexe.com!"
+	err = ws.WriteJSON(welcomeMsg)
 	if err != nil {
 		log.Printf("error writing to websocket: %v", err)
 		return
@@ -210,24 +270,26 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Event loop
 	for {
-		var msg server.StartGameMessage
-		err = ws.ReadJSON(&msg)
+		// Read start game message from client
+		var startMsg server.StartGameMessage
+		err = ws.ReadJSON(&startMsg)
 		if err != nil {
 			log.Printf("error: %v", err)
 			s.RemoveClient(ws)
 			break
 		}
-		switch msg.Type {
-
-		case "rejoin":
+		switch startMsg.Action {
 
 		case "start":
-			err = ws.WriteJSON("Searching for an available game room. Please wait ...")
+			var waitingRoomMessage server.JoinedGameRoomMessage
+			waitingRoomMessage.Message = "Searching for an available game room. Please wait ..."
+			err = ws.WriteJSON(waitingRoomMessage)
 			if err != nil {
 				log.Printf("error writing to websocket: %v", err)
+				s.RemoveClient(ws)
 				return
 			}
-			fmt.Printf("Searching for an available game room to place client %s\n", newClient.UUID)
+			log.Printf("Searching for an available game room to place client %s\n", newClient.UUID)
 			room, err := s.SearchAvailableGameRoom(engine.NUM_PLAYERS)
 			if err != nil {
 				err = ws.WriteJSON("Error finding game room: " + err.Error())
@@ -235,17 +297,20 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 					log.Printf("error writing to websocket: %v", err)
 					return
 				}
+				s.RemoveClient(ws)
 				continue
 			}
 
-			// If room is available and not full add client to room
+			// If room is available (exists and not full) add client to room
 			if room != nil {
-				fmt.Println("Found available room with UUID: " + room.UUID)
 				room.AddClient(newClient)
-				msg := fmt.Sprintf("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
-				err = ws.WriteJSON(msg)
+				var joinedRoomMsg server.JoinedGameRoomMessage
+				joinedRoomMsg.Message = "Joined game room. Waiting for an opponent to join ..."
+				log.Printf("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
+				err = ws.WriteJSON(joinedRoomMsg)
 				if err != nil {
 					log.Printf("error writing to websocket: %v", err)
+					s.RemoveClient(ws)
 					return
 				}
 				// If room is full, start game
@@ -255,7 +320,15 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 					newGame := engine.NewGame(config)
 					room.AddGame(newGame)
 					room.StartGame()
-					// broadcastToRoom(room, "Game started!", "System")
+					var gameStartedMsg server.GameStartedMessage
+					gameStartedMsg.Message = "Game started!"
+					err = ws.WriteJSON(gameStartedMsg)
+					if err != nil {
+						log.Printf("error writing to websocket: %v", err)
+						s.RemoveClient(ws)
+						return
+					}
+
 				}
 
 				if len(room.Clients) >= 2 {
@@ -266,17 +339,20 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 			// If no room is available, create a new one
 			if room == nil {
-				fmt.Println("No room available. Creating a new room.")
+				log.Println("No room available. Creating a new room.")
 				room = NewGameRoom()
 				s.AddRoom(room)
 				room.AddClient(newClient)
-				msg := fmt.Sprintf("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
-				err = ws.WriteJSON(msg)
+				var joinedRoomMsg server.JoinedGameRoomMessage
+				joinedRoomMsg.Message = "Joined game room. Waiting for an opponent to join ..."
+				log.Printf("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
+				err = ws.WriteJSON(joinedRoomMsg)
 				if err != nil {
 					log.Printf("error writing to websocket: %v", err)
 					return
 				}
 			}
+		case "rejoin":
 
 		}
 

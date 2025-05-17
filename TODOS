@@ -1,0 +1,6 @@
+
+- When playing a meld with hand and table reorganize the table cards.
+
+- Create mechanism to check if a websocket connection is still alive.
+
+- Make client send GameOptions to the server when starting a game.

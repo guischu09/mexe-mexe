@@ -25,12 +25,14 @@ func main() {
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	log.Printf("connecting to %s\n", u.String())
 
+	// Stablish websocket connection
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
 	defer ws.Close()
 
+	// Send join message - Here should enter authentication
 	joinMessage := server.JoinServerMessage{
 		Username: username,
 	}
@@ -39,34 +41,51 @@ func main() {
 		log.Printf("error writing to websocket: %v", err)
 		return
 	}
-
-	var msg string
-	err = ws.ReadJSON(&msg)
+	// Read join response from server
+	var welcomeMsg server.WelcomeMessage
+	err = ws.ReadJSON(&welcomeMsg)
 	if err != nil {
 		log.Printf("error: %v", err)
 		return
 	}
-	fmt.Println(msg)
+	fmt.Println(welcomeMsg.Message)
 
+	// Send start game message to server -- TODO with game options
 	startGameMessage := server.StartGameMessage{
-		Type:    "start",
-		Context: "test",
+		Action: "start",
 	}
-
 	err = ws.WriteJSON(startGameMessage)
 	if err != nil {
 		log.Printf("error writing to websocket: %v", err)
 		return
 	}
 
+	// Read Join game response from server
+	var joinMsg server.JoinedGameRoomMessage
+	err = ws.ReadJSON(&joinMsg)
+	if err != nil {
+		log.Printf("error: %v", err)
+		return
+	}
+	fmt.Println(joinMsg.Message)
+
+	// Read Game started message from server
+	var gameStartedMsg server.GameStartedMessage
+	err = ws.ReadJSON(&gameStartedMsg)
+	if err != nil {
+		log.Printf("error: %v", err)
+		return
+	}
+	fmt.Println(gameStartedMsg.Message)
+
 	for {
-		var msg string
-		err = ws.ReadJSON(&msg)
+		var gameMsg server.GameMessage
+		err = ws.ReadJSON(&gameMsg)
 		if err != nil {
 			log.Printf("error: %v", err)
 			break
 		}
-		fmt.Println(msg)
+		fmt.Println(gameMsg)
 	}
 
 }

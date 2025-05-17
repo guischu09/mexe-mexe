@@ -65,6 +65,7 @@ func (r *Rederer) UserInputDisplay() Play {
 
 	fmt.Print("\033[H\033[2J")
 
+	// Get terminal state
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		log.Fatalf("Error setting up terminal: %s\r\n", err)

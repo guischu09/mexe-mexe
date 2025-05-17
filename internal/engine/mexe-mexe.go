@@ -30,6 +30,8 @@ import (
 // quando houver a mesa, usuario podera selecionar a mão "ctrl + h" ou a mesa "ctrl + t"
 
 const INITIAL_POINTS uint32 = 0
+const NUM_PLAYERS = 2
+const NUM_CARDS = 21
 
 type GameConfig struct {
 	Seed              uint64
@@ -39,9 +41,6 @@ type GameConfig struct {
 	RandomPlayerOrder bool
 	TotalCards        uint8
 }
-
-const NUM_PLAYERS = 2
-const NUM_CARDS = 21
 
 func NewGameConfig(playersNames []string) *GameConfig {
 	gameConfig := GameConfig{
@@ -108,7 +107,7 @@ func (g *Game) ShufflePlayers() {
 	})
 }
 
-func (g *Game) Start(inputProvider InputProvider, outputProvider OutputProvider) bool {
+func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvider) bool {
 
 	fmt.Printf("Game started!\r\n")
 
@@ -116,31 +115,33 @@ func (g *Game) Start(inputProvider InputProvider, outputProvider OutputProvider)
 		for i := range g.Players {
 			g.ValidadeGame()
 			player := &g.Players[i]
-			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider, outputProvider)
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider[i])
 
 			switch availablePlay {
 			case QUIT:
-				outputProvider.Write("message", "Player "+player.Name+" quits")
-				outputProvider.Write("message", "Game Over!")
+				outputProvider[i].Write("message", "Player "+player.Name+" quits")
+				outputProvider[i].Write("message", "Game Over!")
 				return false
 
 			case END_TURN:
-				outputProvider.Write("message", "Player "+player.Name+" ends turn")
+				outputProvider[i].Write("message", "Player "+player.Name+" ends turn")
 
 			case DRAW_CARD:
-				outputProvider.Write("message", "Player "+player.Name+" drawed a card")
+				outputProvider[i].Write("message", "Player "+player.Name+" drawed a card")
 
 			case PLAY_MELD:
-				outputProvider.Write("message", "Player "+player.Name+" played a meld")
+				outputProvider[i].Write("message", "Player "+player.Name+" played a meld")
 			}
 			if player.Hand.Size == 0 {
-				outputProvider.Write("message", "Player "+player.Name+" wins!")
+				outputProvider[i].Write("message", "Player "+player.Name+" wins!")
 				return true
 			}
 		}
 	}
-	outputProvider.Write("message", "Deck is empty! Game over!")
-	g.ComputePoints()
+	// Broadcast to all players
+	// outputProvider.Write("message", "Deck is empty! Game over!")
+	fmt.Println("Deck is empty! Game over!")
+	// g.ComputePoints()
 	return true
 }
 
