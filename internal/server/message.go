@@ -36,10 +36,10 @@ type GameStartedMessage struct {
 }
 
 type GameStateMessage struct {
-	Table *engine.Table
-	Hand  *engine.Hand
+	Table engine.Table
+	Hand  engine.Hand
 	Deck  engine.Deck // Is this needed?
-	Turn  *engine.TurnState
+	Turn  engine.TurnState
 }
 
 type GamePlayMessage struct {

@@ -28,10 +28,10 @@ func NewServer() *Server {
 	}
 }
 
-func (s *Server) AddClient(conn *websocket.Conn, ip string, port string, username string, uuid string) {
+func (s *Server) AddClient(newClient *Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Clients[conn] = NewClient(ip, port, username, uuid, conn)
+	s.Clients[newClient.Conn] = newClient
 }
 
 func (s *Server) RemoveClient(conn *websocket.Conn) {
@@ -54,16 +54,71 @@ func (s *Server) RemoveRoom(room *GameRoom) {
 
 func (s *Server) SearchAvailableGameRoom(numPlayers uint8) (*GameRoom, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	// if len(s.Rooms) >= SERVER_CAPACITY {
-	// 	return nil, errors.New("server at maximum capacity, cannot create new room")
-	// }
-	for _, room := range s.Rooms {
-		if room != nil && !room.GameStarted && len(room.Clients) < int(numPlayers) {
-			log.Printf("Found available game room: %s", room.UUID)
-			return room, nil
+	log.Printf("DEBUG: SearchRoom - Searching among %d rooms", len(s.Rooms))
+
+	candidateRooms := make([]*GameRoom, 0, len(s.Rooms))
+	for id, room := range s.Rooms {
+		log.Printf("DEBUG: SearchRoom - Examining room %s", id)
+
+		// Check if room is nil
+		if room == nil {
+			log.Printf("DEBUG: SearchRoom - Room %s is nil!", id)
+			continue
+		}
+
+		// Look at room details
+		room.mu.Lock()
+		clientCount := len(room.Clients)
+		gameStarted := room.GameStarted
+
+		// Check if client list is nil
+		if room.Clients == nil {
+			log.Printf("DEBUG: SearchRoom - Room %s has nil Clients slice!", id)
+		}
+
+		// Check individual clients
+		for i, client := range room.Clients {
+			if client == nil {
+				log.Printf("DEBUG: SearchRoom - Room %s has nil client at index %d!", id, i)
+			} else {
+				log.Printf("DEBUG: SearchRoom - Room %s has client %s at index %d",
+					id, client.UUID, i)
+			}
+		}
+
+		room.mu.Unlock()
+
+		log.Printf("DEBUG: SearchRoom - Room %s has %d clients, started: %v",
+			id, clientCount, gameStarted)
+
+		candidateRooms = append(candidateRooms, room)
+	}
+	s.mu.Unlock()
+
+	var bestRoom *GameRoom
+	var bestPlayerCount int = -1
+
+	// Now examine each room without holding the server lock
+	for _, room := range candidateRooms {
+		room.mu.Lock()
+		clientCount := len(room.Clients)
+		isAvailable := !room.GameStarted &&
+			clientCount < int(numPlayers) &&
+			clientCount > 0
+		room.mu.Unlock()
+
+		if isAvailable && clientCount > bestPlayerCount {
+			bestRoom = room
+			bestPlayerCount = clientCount
 		}
 	}
+
+	if bestRoom != nil {
+		log.Printf("Found available game room: %s with %d/%d players",
+			bestRoom.UUID, bestPlayerCount, numPlayers)
+		return bestRoom, nil
+	}
+
 	return nil, nil
 }
 
@@ -141,9 +196,15 @@ func (g *GameRoom) AddGame(game *engine.Game) {
 func (g *GameRoom) AddClient(Client *Client) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if !g.IsFull() {
+	log.Printf("DEBUG: AddClient - Room %s before adding: %d clients", g.UUID, len(g.Clients))
+	if !g.isFullLocked() {
 		g.Clients = append(g.Clients, Client)
 		g.NumPlayers = uint8(len(g.Clients))
+		log.Printf("DEBUG: AddClient - Room %s after adding: %d clients, client %s added",
+			g.UUID, len(g.Clients), Client.UUID)
+	} else {
+		log.Printf("DEBUG: AddClient - Room %s is full, can't add client %s",
+			g.UUID, Client.UUID)
 	}
 }
 
@@ -179,18 +240,26 @@ func (g *GameRoom) IsFull() bool {
 	return g.NumPlayers == 2
 }
 
+func (g *GameRoom) isFullLocked() bool {
+	if g.NumPlayers > 2 {
+		log.Printf("ERROR: Game room is full. Cannot add more clients. Num players: %d", g.NumPlayers)
+		return true
+	}
+	return g.NumPlayers == 2
+}
+
 func (g *GameRoom) StartGame() {
 	log.Printf("Game on room %s started!\n", g.UUID)
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.GameStarted = true
-	g.RoomChannel <- "Game started!"
+	// g.RoomChannel <- "Game started!"
 
 	inputProvider := make([]engine.InputProvider, len(g.Clients))
 	outputProvider := make([]engine.OutputProvider, len(g.Clients))
-	for u := range g.Clients {
-		inputProvider[u] = NewWebsocketInputProvider(g.Clients[u].Conn)
-		outputProvider[u] = NewWebsocketOutputProvider(g.Clients[u].Conn)
+	for i, client := range g.Clients { // i is index, client is the value
+		inputProvider[i] = NewWebsocketInputProvider(client.Conn)
+		outputProvider[i] = NewWebsocketOutputProvider(client.Conn)
 	}
 	go g.Game.Start(inputProvider, outputProvider)
 }
@@ -206,6 +275,7 @@ func NewWebsocketOutputProvider(conn *websocket.Conn) WebsocketOutputProvider {
 }
 
 func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
+	log.Printf("DEBUG: Write - Writing message type %s", messageType)
 }
 
 type WebsocketInputProvider struct {
@@ -219,23 +289,40 @@ func NewWebsocketInputProvider(conn *websocket.Conn) WebsocketInputProvider {
 }
 
 func (w WebsocketInputProvider) GetPlay(table *engine.Table, hand *engine.Hand, playerName string, turnState *engine.TurnState) engine.Play {
+	// Create a properly populated game state message
+	gameStateMsg := server.GameStateMessage{
+		Table: *table,
+		Hand:  *hand,
+		Turn:  *turnState,
+	}
 
-	var gameStateMsg server.GameStateMessage
+	// Send the game state to the client
 	err := w.conn.WriteJSON(&gameStateMsg)
 	if err != nil {
 		log.Printf("error writing to websocket: %v", err)
 		log.Println("Closing connection")
 		w.conn.Close()
-		return nil
+		// Return a "quit" play instead of nil
+		return engine.NewQuitPlay("connection_lost")
 	}
+
+	// Read the client's move
 	var gamePlayMsg server.GamePlayMessage
 	err = w.conn.ReadJSON(&gamePlayMsg)
 	if err != nil {
 		log.Printf("error reading from websocket: %v", err)
 		log.Println("Closing connection")
 		w.conn.Close()
-		return nil
+		// Return a "quit" play instead of nil
+		return engine.NewQuitPlay("connection_lost")
 	}
+
+	// Handle case where Play might be nil
+	if gamePlayMsg.Play == nil {
+		log.Printf("warning: received nil play from client, treating as quit")
+		return engine.NewQuitPlay("nil_play")
+	}
+
 	return gamePlayMsg.Play
 }
 
@@ -295,7 +382,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	ip, port := parseRemoteAddr(r.RemoteAddr)
 	uuid := server.GenerateUniqueID()
 	newClient := NewClient(ip, port, joinMsg.Username, uuid, ws)
-	s.AddClient(ws, ip, port, joinMsg.Username, uuid)
+	s.AddClient(newClient)
 
 	// Send welcome message to client
 	var welcomeMsg server.WelcomeMessage
@@ -330,6 +417,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Printf("Searching for an available game room to place client %s\n", newClient.UUID)
 			room, err := s.SearchAvailableGameRoom(engine.NUM_PLAYERS)
+			log.Printf("DEBUG: Room: %v\n", room)
 			if err != nil {
 				err = ws.WriteJSON("Error finding game room: " + err.Error())
 				if err != nil {
@@ -370,18 +458,49 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 				}
 
-				if len(room.Clients) >= 2 {
-					room.GameStarted = true
-				}
-
 			}
 
 			// If no room is available, create a new one
 			if room == nil {
 				log.Println("No room available. Creating a new room.")
 				room = NewGameRoom()
+				log.Printf("DEBUG: New room created with UUID: %s", room.UUID)
 				s.AddRoom(room)
+				log.Printf("DEBUG: Room added to server")
+
+				// Check that room exists in the map
+				s.mu.Lock()
+				if existingRoom, ok := s.Rooms[room.UUID]; ok {
+					log.Printf("DEBUG: Room %s found in map after adding", room.UUID)
+					if existingRoom != room {
+						log.Printf("DEBUG: WARNING - Room pointers don't match!")
+					}
+				} else {
+					log.Printf("DEBUG: WARNING - Room %s not found in map after adding!", room.UUID)
+				}
+				s.mu.Unlock()
+
+				log.Printf("DEBUG: About to add client %s to room %s", newClient.UUID, room.UUID)
 				room.AddClient(newClient)
+				log.Printf("DEBUG: After adding client, room has %d clients", len(room.Clients))
+
+				// Verify client was added
+				room.mu.Lock()
+				clientFound := false
+				for _, c := range room.Clients {
+					if c.UUID == newClient.UUID {
+						clientFound = true
+						break
+					}
+				}
+				room.mu.Unlock()
+
+				if !clientFound {
+					log.Printf("DEBUG: WARNING - Client %s not found in room after adding!", newClient.UUID)
+				} else {
+					log.Printf("DEBUG: Client %s confirmed in room", newClient.UUID)
+				}
+
 				var joinedRoomMsg server.JoinedGameRoomMessage
 				joinedRoomMsg.Message = "Joined game room. Waiting for an opponent to join ..."
 				log.Printf("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)

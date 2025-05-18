@@ -103,7 +103,7 @@ func main() {
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != playerUUID
-		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
+		renderer.UpdateRenderer(&gameState.Table, &gameState.Hand, &gameState.Turn)
 
 		var play engine.Play
 		if freeze {
