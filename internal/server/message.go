@@ -1,5 +1,7 @@
 package server
 
+import "mexemexe/internal/engine"
+
 type JoinServerMessage struct {
 	Username string `json:"username"`
 }
@@ -9,7 +11,8 @@ type MaxCapacityMessage struct {
 }
 
 type WelcomeMessage struct {
-	Message string `json:"message"`
+	Message    string `json:"message"`
+	PlayerUUID string `json:"player_uuid"`
 }
 
 type ErrorMessage struct {
@@ -30,6 +33,17 @@ type JoinedGameRoomMessage struct {
 
 type GameStartedMessage struct {
 	Message string `json:"message"`
+}
+
+type GameStateMessage struct {
+	Table *engine.Table
+	Hand  *engine.Hand
+	Deck  engine.Deck // Is this needed?
+	Turn  *engine.TurnState
+}
+
+type GamePlayMessage struct {
+	Play engine.Play
 }
 
 type GameMessage struct {

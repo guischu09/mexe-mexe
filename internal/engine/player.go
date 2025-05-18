@@ -17,12 +17,14 @@ var INPUT_MAPPING = map[string]AvailablePlay{
 type TurnState struct {
 	HasDrawedCard bool
 	HasPlayedMeld bool
+	PlayerUUID    string
 }
 
-func NewTurnState() *TurnState {
+func NewTurnState(playerUUID string) *TurnState {
 	return &TurnState{
 		HasDrawedCard: false,
 		HasPlayedMeld: false,
+		PlayerUUID:    playerUUID,
 	}
 }
 
@@ -64,7 +66,7 @@ func (p *Player) UpdatePoints(points uint32) {
 
 func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProvider OutputProvider) AvailablePlay {
 
-	turnState := NewTurnState()
+	turnState := NewTurnState(p.Name)
 
 	for {
 		play := inputProvider.GetPlay(table, p.Hand, p.Name, turnState)

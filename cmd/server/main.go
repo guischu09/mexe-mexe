@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"mexemexe/internal/engine"
 	"mexemexe/internal/server"
@@ -9,7 +8,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -121,7 +119,7 @@ type GameRoom struct {
 }
 
 func NewGameRoom() *GameRoom {
-	uuid := generateUniqueID()
+	uuid := server.GenerateUniqueID()
 	gameRoom := GameRoom{
 		UUID:        uuid,
 		Game:        nil,
@@ -182,24 +180,64 @@ func (g *GameRoom) IsFull() bool {
 }
 
 func (g *GameRoom) StartGame() {
-	fmt.Println("Game started!")
-	// g.mu.Lock()
-	// defer g.mu.Unlock()
-	// g.GameStarted = true
-	// g.RoomChannel <- "Game started!"
-	// go g.Game.Start()
+	log.Printf("Game on room %s started!\n", g.UUID)
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.GameStarted = true
+	g.RoomChannel <- "Game started!"
+
+	inputProvider := make([]engine.InputProvider, len(g.Clients))
+	outputProvider := make([]engine.OutputProvider, len(g.Clients))
+	for u := range g.Clients {
+		inputProvider[u] = NewWebsocketInputProvider(g.Clients[u].Conn)
+		outputProvider[u] = NewWebsocketOutputProvider(g.Clients[u].Conn)
+	}
+	go g.Game.Start(inputProvider, outputProvider)
 }
 
-func generateUniqueID() string {
-	return uuid.New().String()
-}
-
-type WebSocketInputProvider struct {
+type WebsocketOutputProvider struct {
 	conn *websocket.Conn
 }
 
-// func (w *WebSocketInputProvider) GetPlay(table *engine.Table, hand *engine.Hand, playerName string, turnState *engine.TurnState) engine.Play {
-// }
+func NewWebsocketOutputProvider(conn *websocket.Conn) WebsocketOutputProvider {
+	return WebsocketOutputProvider{
+		conn: conn,
+	}
+}
+
+func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
+}
+
+type WebsocketInputProvider struct {
+	conn *websocket.Conn
+}
+
+func NewWebsocketInputProvider(conn *websocket.Conn) WebsocketInputProvider {
+	return WebsocketInputProvider{
+		conn: conn,
+	}
+}
+
+func (w WebsocketInputProvider) GetPlay(table *engine.Table, hand *engine.Hand, playerName string, turnState *engine.TurnState) engine.Play {
+
+	var gameStateMsg server.GameStateMessage
+	err := w.conn.WriteJSON(&gameStateMsg)
+	if err != nil {
+		log.Printf("error writing to websocket: %v", err)
+		log.Println("Closing connection")
+		w.conn.Close()
+		return nil
+	}
+	var gamePlayMsg server.GamePlayMessage
+	err = w.conn.ReadJSON(&gamePlayMsg)
+	if err != nil {
+		log.Printf("error reading from websocket: %v", err)
+		log.Println("Closing connection")
+		w.conn.Close()
+		return nil
+	}
+	return gamePlayMsg.Play
+}
 
 // parseRemoteAddr parses the remote address of a websocket connection into an IP and port
 func parseRemoteAddr(addr string) (string, string) {
@@ -255,13 +293,14 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new client and register it in the server
 	ip, port := parseRemoteAddr(r.RemoteAddr)
-	uuid := generateUniqueID()
+	uuid := server.GenerateUniqueID()
 	newClient := NewClient(ip, port, joinMsg.Username, uuid, ws)
 	s.AddClient(ws, ip, port, joinMsg.Username, uuid)
 
 	// Send welcome message to client
 	var welcomeMsg server.WelcomeMessage
 	welcomeMsg.Message = "Welcome to mexe-mexe.com!"
+	welcomeMsg.PlayerUUID = uuid
 	err = ws.WriteJSON(welcomeMsg)
 	if err != nil {
 		log.Printf("error writing to websocket: %v", err)

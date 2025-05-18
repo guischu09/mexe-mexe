@@ -33,6 +33,11 @@ const INITIAL_POINTS uint32 = 0
 const NUM_PLAYERS = 2
 const NUM_CARDS = 21
 
+type GameOptions struct {
+	NumPlayers uint8
+	NumCards   uint8
+}
+
 type GameConfig struct {
 	Seed              uint64
 	PlayersName       []string
@@ -78,6 +83,7 @@ func NewGame(config *GameConfig) *Game {
 
 	for i := 0; i < int(config.NumPlayers); i++ {
 		newHand := NewHandFromDeck(deck, config.NumCards)
+
 		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
 	}
 

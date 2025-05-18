@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mexemexe/internal/engine"
 	"mexemexe/internal/server"
 	"net/url"
 
@@ -43,11 +44,13 @@ func main() {
 	}
 	// Read join response from server
 	var welcomeMsg server.WelcomeMessage
+
 	err = ws.ReadJSON(&welcomeMsg)
 	if err != nil {
 		log.Printf("error: %v", err)
 		return
 	}
+	playerUUID := welcomeMsg.PlayerUUID
 	fmt.Println(welcomeMsg.Message)
 
 	// Send start game message to server -- TODO with game options
@@ -78,14 +81,67 @@ func main() {
 	}
 	fmt.Println(gameStartedMsg.Message)
 
+	renderer := engine.NewRenderer(username)
+
+	toServer := make(chan engine.Play)
+	fromServer := make(chan server.GameStateMessage)
+	stopDisplay := make(chan bool)
+
+	go SendToServer(ws, toServer)
+	go ListenFromServer(ws, fromServer)
+
+	// Game started!
 	for {
-		var gameMsg server.GameMessage
-		err = ws.ReadJSON(&gameMsg)
+		// Get Initial game state
+		gameState := <-fromServer
+
+		// Sends a boolean to stopDisplay
+		select {
+		case stopDisplay <- true:
+		default:
+		}
+
+		// Determine if it's the player's turn
+		freeze := gameState.Turn.PlayerUUID != playerUUID
+		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
+
+		var play engine.Play
+		if freeze {
+			play = renderer.DisplayScreen(stopDisplay)
+
+		} else {
+			play = renderer.UserInputDisplay(stopDisplay)
+		}
+		if play != nil {
+			toServer <- play
+		}
+	}
+}
+
+func SendToServer(ws *websocket.Conn, toServer chan engine.Play) {
+	for {
+		play := <-toServer
+		var gamePlayMsg server.GamePlayMessage
+		gamePlayMsg.Play = play
+
+		err := ws.WriteJSON(&gamePlayMsg)
+		if err != nil {
+			log.Printf("error writing to websocket: %v", err)
+			return
+		}
+	}
+}
+
+func ListenFromServer(ws *websocket.Conn, fromServer chan server.GameStateMessage) {
+
+	for {
+		var gameStateMsg server.GameStateMessage
+		err := ws.ReadJSON(&gameStateMsg)
 		if err != nil {
 			log.Printf("error: %v", err)
-			break
+			return
 		}
-		fmt.Println(gameMsg)
+		fromServer <- gameStateMsg
 	}
 
 }

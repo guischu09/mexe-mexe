@@ -21,19 +21,27 @@ type Rederer struct {
 	selectedCount int
 	selectedCards []bool
 	turnState     *TurnState
+	freeze        bool
 }
 
-func NewRenderer(table *Table, hand *Hand, playerName string, turnState *TurnState) *Rederer {
+func NewRenderer(playerName string) *Rederer {
 	return &Rederer{
 		Width:         0,
-		Table:         table,
-		Hand:          hand,
+		Table:         nil,
+		Hand:          nil,
 		PlayerName:    playerName,
 		currentPos:    0,
 		selectedCount: 0,
 		selectedCards: []bool{false},
-		turnState:     turnState,
+		turnState:     nil,
+		freeze:        true,
 	}
+}
+
+func (r *Rederer) UpdateRenderer(table *Table, hand *Hand, turnState *TurnState) {
+	r.Table = table
+	r.Hand = hand
+	r.turnState = turnState
 }
 
 func (r *Rederer) CreateHorizontalLine(char string) string {
@@ -61,7 +69,7 @@ func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
 	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", headerLine[:r.Width]))
 }
 
-func (r *Rederer) UserInputDisplay() Play {
+func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 
 	fmt.Print("\033[H\033[2J")
 
@@ -95,7 +103,13 @@ func (r *Rederer) UserInputDisplay() Play {
 	statusMessage := ""
 
 	for {
-		r.RenderScreen(allCards, statusMessage)
+		select {
+		case <-stopSignal:
+			return nil
+		default:
+		}
+
+		r.RenderInputScreen(allCards, statusMessage)
 		if statusMessage != "" {
 			time.Sleep(1 * time.Second)
 			statusMessage = ""
@@ -208,7 +222,7 @@ func (r *Rederer) UserInputDisplay() Play {
 	}
 }
 
-func (r *Rederer) RenderScreen(allCards []*Card, statusMessage string) {
+func (r *Rederer) RenderInputScreen(allCards []*Card, statusMessage string) {
 
 	var screenBuffer strings.Builder
 
@@ -333,4 +347,144 @@ func DisplayCardsToString(cards []Card, highlightPos int) string {
 	}
 
 	return output.String()
+}
+
+func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
+
+	fmt.Print("\033[H\033[2J")
+
+	// Get terminal state
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		log.Fatalf("Error setting up terminal: %s\r\n", err)
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	// Get terminal dimensions
+	width, _, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		log.Fatalf("Error getting terminal size: %s\r\n", err)
+		return nil
+	}
+	r.Width = width
+
+	r.currentPos = 0
+	r.selectedCount = 0
+	statusMessage := ""
+
+	for {
+		select {
+		case <-stopSignal:
+			return nil
+		default:
+		}
+		r.RenderScreen(statusMessage)
+		if statusMessage != "" {
+			time.Sleep(1 * time.Second)
+			statusMessage = ""
+			continue
+		}
+
+		buffer := make([]byte, 3)
+		n, err := os.Stdin.Read(buffer)
+		if err != nil {
+			fmt.Printf("Error reading input: %s\r\n", err)
+			continue
+		}
+
+		if n == 1 {
+			switch buffer[0] {
+			case 'q':
+				fmt.Print("\033[H\033[2J")
+				fmt.Printf("Are you sure you want to quit? (y/n)\r\n")
+				_, err = os.Stdin.Read(buffer[:1])
+				if err != nil {
+					continue
+				}
+				if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
+					return NewQuitPlay("q")
+				} else {
+					fmt.Print("\033[H\033[2J")
+					continue
+				}
+			default:
+				statusMessage = "You cannot make a play now. Wait for your turn."
+				continue
+			}
+		}
+	}
+}
+
+func (r *Rederer) RenderScreen(statusMessage string) {
+
+	var screenBuffer strings.Builder
+
+	// Display table section
+	tableTitle := "\nTABLE"
+	tablePadding := (r.Width - len(tableTitle)) / 2
+	if tablePadding < 0 {
+		tablePadding = 0
+	}
+
+	tablePadStr := ""
+	for range tablePadding {
+		tablePadStr += " "
+	}
+
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s%s\r\n", tablePadStr, tableTitle))
+	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", r.CreateHorizontalLine("_")[:r.Width]))
+
+	if len(r.Table.Cards) > 0 {
+		tableOffset := len(r.Hand.Cards)
+		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, r.selectedCards[tableOffset:],
+			r.currentPos >= tableOffset, r.currentPos-tableOffset)
+		screenBuffer.WriteString(tableOutput)
+		screenBuffer.WriteString("\r\n\r\n")
+	} else {
+		screenBuffer.WriteString("\r\n\r\n")
+	}
+
+	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", r.CreateHorizontalLine("_")[:r.Width]))
+
+	// Display hand section
+	handTitle := fmt.Sprintf("%s's hand", r.PlayerName)
+
+	handPadding := max((r.Width-len(handTitle))/2, 0)
+
+	handPadStr := ""
+	for range handPadding {
+		handPadStr += " "
+	}
+
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s%s\r\n", handPadStr, handTitle))
+
+	handDivider := r.CreateHorizontalLine("-")[:r.Width]
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", handDivider))
+
+	handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, r.selectedCards[:len(r.Hand.Cards)],
+		r.currentPos < len(r.Hand.Cards), r.currentPos)
+	screenBuffer.WriteString(handOutput)
+
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", handDivider))
+
+	// Show selected cards
+	if r.selectedCount > 0 {
+		selectedCardsList := []Card{}
+		for i, isSelected := range r.selectedCards {
+			if isSelected {
+				selectedCardsList = append(selectedCardsList, *r.Hand.Cards[i])
+			}
+		}
+		selectedOutput := DisplayCardsToString(selectedCardsList, -1)
+		screenBuffer.WriteString(selectedOutput)
+	}
+
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", "Wait for your turn. Press 'q' to quit."))
+	if statusMessage != "" {
+		screenBuffer.WriteString(fmt.Sprintf("\r\n\r\n%s\r\n", statusMessage))
+	}
+
+	fmt.Print("\033[H")
+	fmt.Print(screenBuffer.String())
+	fmt.Print("\033[J")
 }
