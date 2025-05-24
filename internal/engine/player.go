@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"log"
 )
 
 const MAX_BUFFER_SIZE = 3
@@ -68,8 +69,10 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 
 	turnState := NewTurnState(p.Name)
 
+	log.Printf("DEBUG: TurnState: %v\r\n", turnState)
+
 	for {
-		play := inputProvider.GetPlay(table, p.Hand, p.Name, turnState)
+		play := inputProvider.GetPlay(*table, *p.Hand, p.Name, *turnState)
 		if IsValid(turnState, play, outputProvider) {
 			MakePlay(play, deck, table, p, outputProvider)
 

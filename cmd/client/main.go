@@ -103,7 +103,7 @@ func main() {
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != playerUUID
-		renderer.UpdateRenderer(&gameState.Table, &gameState.Hand, &gameState.Turn)
+		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
 
 		var play engine.Play
 		if freeze {
@@ -133,7 +133,6 @@ func SendToServer(ws *websocket.Conn, toServer chan engine.Play) {
 }
 
 func ListenFromServer(ws *websocket.Conn, fromServer chan server.GameStateMessage) {
-
 	for {
 		var gameStateMsg server.GameStateMessage
 		err := ws.ReadJSON(&gameStateMsg)

@@ -115,11 +115,15 @@ func (g *Game) ShufflePlayers() {
 
 func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvider) bool {
 
-	fmt.Printf("Game started!\r\n")
+	log.Printf("DEBUG: Game started!\r\n")
+	log.Printf("DEBUG: Players: %v\r\n", g.Players)
+	log.Printf("DEBUG: Deck: %v\r\n", g.Deck)
+	log.Printf("DEBUG: Table: %v\r\n", g.Table)
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			g.ValidadeGame()
+			log.Printf("DEBUG: Hand: %v\r\n", g.Players[i].Hand)
 			player := &g.Players[i]
 			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider[i])
 

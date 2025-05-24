@@ -38,7 +38,7 @@ type GameStartedMessage struct {
 type GameStateMessage struct {
 	Table engine.Table
 	Hand  engine.Hand
-	Deck  engine.Deck // Is this needed?
+	Deck  engine.Deck
 	Turn  engine.TurnState
 }
 

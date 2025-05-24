@@ -14,31 +14,31 @@ import (
 
 type Rederer struct {
 	Width         int
-	Table         *Table
-	Hand          *Hand
+	Table         Table
+	Hand          Hand
 	PlayerName    string
 	currentPos    int
 	selectedCount int
 	selectedCards []bool
-	turnState     *TurnState
+	turnState     TurnState
 	freeze        bool
 }
 
 func NewRenderer(playerName string) *Rederer {
 	return &Rederer{
 		Width:         0,
-		Table:         nil,
-		Hand:          nil,
+		Table:         Table{},
+		Hand:          Hand{},
 		PlayerName:    playerName,
 		currentPos:    0,
 		selectedCount: 0,
 		selectedCards: []bool{false},
-		turnState:     nil,
+		turnState:     TurnState{},
 		freeze:        true,
 	}
 }
 
-func (r *Rederer) UpdateRenderer(table *Table, hand *Hand, turnState *TurnState) {
+func (r *Rederer) UpdateRenderer(table Table, hand Hand, turnState TurnState) {
 	r.Table = table
 	r.Hand = hand
 	r.turnState = turnState
