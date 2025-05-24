@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand/v2"
+	"mexemexe/internal/service"
 )
 
 // Mexe-mexe rules:
@@ -64,18 +65,20 @@ type Game struct {
 	Deck    *Deck
 	Table   Table
 	Players []Player
+	logger  *service.GameLogger
 }
 
-func NewEmptyGame(config *GameConfig) *Game {
+func NewEmptyGame(config *GameConfig, logger *service.GameLogger) *Game {
 	return &Game{
 		Config:  config,
 		Deck:    NewDeck(config.Seed),
 		Table:   Table{},
 		Players: nil,
+		logger:  logger,
 	}
 }
 
-func NewGame(config *GameConfig) *Game {
+func NewGame(config *GameConfig, logger *service.GameLogger) *Game {
 
 	// Implement input validation for a game to start, to avoid starting games with 10 players.
 	players := make([]Player, config.NumPlayers)
@@ -94,10 +97,12 @@ func NewGame(config *GameConfig) *Game {
 			players[i], players[j] = players[j], players[i]
 		})
 	}
+
 	return &Game{
 		Config:  config,
 		Deck:    deck,
 		Players: players,
+		logger:  logger,
 	}
 }
 
@@ -115,15 +120,15 @@ func (g *Game) ShufflePlayers() {
 
 func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvider) bool {
 
-	log.Printf("DEBUG: Game started!\r\n")
-	log.Printf("DEBUG: Players: %v\r\n", g.Players)
-	log.Printf("DEBUG: Deck: %v\r\n", g.Deck)
-	log.Printf("DEBUG: Table: %v\r\n", g.Table)
+	g.logger.Infof("Game started!\r\n")
+	g.logger.Infof("Players: %v\r\n", len(g.Players))
+	g.logger.Infof("Deck: %v\r\n", g.Deck.Size)
+	g.logger.Infof("Table: %v\r\n", g.Table.Size)
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			g.ValidadeGame()
-			log.Printf("DEBUG: Hand: %v\r\n", g.Players[i].Hand)
+			g.logger.Infof("Hand: %v\r\n", g.Players[i].Hand)
 			player := &g.Players[i]
 			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider[i])
 

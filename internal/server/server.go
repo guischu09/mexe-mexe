@@ -27,7 +27,7 @@ func GenerateUniqueID() string {
 
 // Server defines the game server struct
 type Server struct {
-	Clients  map[*websocket.Conn]*Client
+	Clients  map[string]*Client
 	Rooms    map[string]*GameRoom
 	Capacity int
 	mu       sync.Mutex
@@ -40,7 +40,7 @@ type Server struct {
 func NewServer(serverConfig *ServerConfig) *Server {
 	uuid := GenerateUniqueID()
 	return &Server{
-		Clients:  make(map[*websocket.Conn]*Client),
+		Clients:  make(map[string]*Client),
 		Rooms:    make(map[string]*GameRoom, SERVER_CAPACITY),
 		Capacity: SERVER_CAPACITY,
 		config:   serverConfig,
@@ -54,15 +54,15 @@ func (s *Server) AddClient(newClient *Client) {
 	s.logger.Debugf("Adding client %s to server", newClient.Conn.RemoteAddr())
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Clients[newClient.Conn] = newClient
+	s.Clients[newClient.UUID] = newClient
 }
 
 // RemoveClient removes a client from the server
-func (s *Server) RemoveClient(conn *websocket.Conn) {
-	s.logger.Debugf("Removing client %s from server", conn.RemoteAddr())
+func (s *Server) RemoveClient(uuid string) {
+	s.logger.Debugf("Removing client with uuid %s from server", uuid)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.Clients, conn)
+	delete(s.Clients, uuid)
 }
 
 // AddRoom adds a new room to the server
@@ -174,11 +174,13 @@ func parseRemoteAddr(addr string) (string, string) {
 	return host, port
 }
 
+// HandleConnections handles incoming websocket connections to the server
 func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
-	// Stablish a websocket connection
+	// Establish a websocket connection
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Errorf("error: %v", err)
+		s.logger.Errorf("error upgrading connection: %v", err)
+		return
 	}
 	defer ws.Close()
 
@@ -188,21 +190,23 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 	var joinMsg JoinServerMessage
 	err = ws.ReadJSON(&joinMsg)
 	if err != nil {
-		s.logger.Errorf("error: %v", err)
+		s.logger.Errorf("error reading join message: %v", err)
+		return
 	}
 
 	// Check if server is at maximum capacity
 	if s.IsAtMaximumCapacity() {
-		var maxMsg MaxCapacityMessage
-		maxMsg.Message = "Server is at maximum capacity. Please try again later."
+		maxMsg := MaxCapacityMessage{
+			Message: "Server is at maximum capacity. Please try again later.",
+		}
 		err = ws.WriteJSON(maxMsg)
 		if err != nil {
-			s.logger.Errorf("error writing to websocket: %v", err)
-			return
+			s.logger.Errorf("error writing max capacity message: %v", err)
 		}
 		return
 	}
-	// Authenticate user:
+
+	// Authenticate user
 	s.logger.Infof("Authenticating client from %s", r.RemoteAddr)
 	if !s.AuthenticateUser(joinMsg.Username, ws) {
 		s.logger.Infof("Authentication failed for client from %s", r.RemoteAddr)
@@ -211,8 +215,7 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		err = ws.WriteJSON(errorMsg)
 		if err != nil {
-			s.logger.Errorf("error writing to websocket: %v", err)
-			return
+			s.logger.Errorf("error writing auth error message: %v", err)
 		}
 		return
 	}
@@ -223,138 +226,163 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 	newClient := NewClient(ip, port, joinMsg.Username, uuid, ws)
 	s.AddClient(newClient)
 
+	// Ensure client cleanup on function exit
+	defer func() {
+		s.RemoveClient(newClient.UUID)
+		s.logger.Infof("Client %s disconnected and removed", newClient.UUID)
+	}()
+
 	// Send welcome message to client
-	var welcomeMsg WelcomeMessage
-	welcomeMsg.Message = "Welcome to mexe-mexe.com!"
-	welcomeMsg.PlayerUUID = uuid
+	welcomeMsg := WelcomeMessage{
+		Message:    "Welcome to mexe-mexe.com!",
+		PlayerUUID: uuid,
+	}
 	err = ws.WriteJSON(welcomeMsg)
 	if err != nil {
-		s.logger.Errorf("error writing to websocket: %v", err)
+		s.logger.Errorf("error writing welcome message: %v", err)
 		return
 	}
 
-	// Event loop
-	for {
-		// Read start game message from client
-		var startMsg StartGameMessage
-		err = ws.ReadJSON(&startMsg)
-		if err != nil {
-			s.logger.Errorf("error: %v", err)
-			s.RemoveClient(ws)
-			break
-		}
-		switch startMsg.Action {
-
-		case "start":
-			var waitingRoomMessage JoinedGameRoomMessage
-			waitingRoomMessage.Message = "Searching for an available game room. Please wait ..."
-			err = ws.WriteJSON(waitingRoomMessage)
-			if err != nil {
-				s.logger.Errorf("error writing to websocket: %v", err)
-				s.RemoveClient(ws)
-				return
-			}
-			s.logger.Infof("Searching for an available game room to place client %s\n", newClient.UUID)
-			room, err := s.SearchAvailableGameRoom(engine.NUM_PLAYERS)
-			s.logger.Debugf("Found room: %v\n", room)
-			if err != nil {
-				err = ws.WriteJSON("Error finding game room: " + err.Error())
-				if err != nil {
-					s.logger.Errorf("error writing to websocket: %v", err)
-					return
-				}
-				s.RemoveClient(ws)
-				continue
-			}
-
-			// If room is available (exists and not full) add client to room
-			if room != nil {
-				room.AddClient(newClient)
-				var joinedRoomMsg JoinedGameRoomMessage
-				joinedRoomMsg.Message = "Joined game room. Waiting for an opponent to join ..."
-				s.logger.Infof("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
-				err = ws.WriteJSON(joinedRoomMsg)
-				if err != nil {
-					s.logger.Errorf("error writing to websocket: %v", err)
-					s.RemoveClient(ws)
-					return
-				}
-				// If room is full, start game
-				if room.IsFull() {
-					playersUsernames := room.GetClientsUsername()
-					config := engine.NewGameConfig(playersUsernames)
-					newGame := engine.NewGame(config)
-					room.AddGame(newGame)
-					room.StartGame()
-					var gameStartedMsg GameStartedMessage
-					gameStartedMsg.Message = "Game started!"
-					err = ws.WriteJSON(gameStartedMsg)
-					if err != nil {
-						s.logger.Errorf("error writing to websocket: %v", err)
-						s.RemoveClient(ws)
-						return
-					}
-
-				}
-
-			}
-
-			// If no room is available, create a new one
-			if room == nil {
-				s.logger.Debugf("No room available. Creating a new room.")
-				room = NewGameRoom(s.config.logLevel)
-				s.logger.Debugf("New room created with UUID: %s", room.UUID)
-				s.AddRoom(room)
-				s.logger.Debugf("Room added to server")
-
-				// Check that room exists in the map
-				s.mu.Lock()
-				if existingRoom, ok := s.Rooms[room.UUID]; ok {
-					s.logger.Debugf("Room %s found in map after adding", room.UUID)
-					if existingRoom != room {
-						s.logger.Warningf("Room pointers don't match!")
-					}
-				} else {
-					s.logger.Warningf("Room %s not found in map after adding!", room.UUID)
-				}
-				s.mu.Unlock()
-
-				s.logger.Debugf("About to add client %s to room %s", newClient.UUID, room.UUID)
-				room.AddClient(newClient)
-				s.logger.Debugf("After adding client, room has %d clients", len(room.Clients))
-
-				// Verify client was added
-				room.mu.Lock()
-				clientFound := false
-				for _, c := range room.Clients {
-					if c.UUID == newClient.UUID {
-						clientFound = true
-						break
-					}
-				}
-				room.mu.Unlock()
-
-				if !clientFound {
-					s.logger.Debugf("Client %s not found in room after adding!", newClient.UUID)
-				} else {
-					s.logger.Debugf("Client %s confirmed in room", newClient.UUID)
-				}
-
-				var joinedRoomMsg JoinedGameRoomMessage
-				joinedRoomMsg.Message = "Joined game room. Waiting for an opponent to join ..."
-				s.logger.Infof("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
-				err = ws.WriteJSON(joinedRoomMsg)
-				if err != nil {
-					s.logger.Errorf("error writing to websocket: %v", err)
-					return
-				}
-			}
-		case "rejoin":
-
-		}
-
+	// Wait for start game message from client
+	var startMsg StartGameMessage
+	err = ws.ReadJSON(&startMsg)
+	if err != nil {
+		s.logger.Errorf("error reading start message: %v", err)
+		return
 	}
 
+	// Handle the start message
+	switch startMsg.Action {
+	case "start":
+		err = s.handleStartGame(newClient, ws)
+		if err != nil {
+			s.logger.Errorf("error handling start game: %v", err)
+			return
+		}
+
+	case "rejoin":
+		s.handleRejoin()
+
+	default:
+		s.logger.Errorf("unknown action: %s", startMsg.Action)
+		errorMsg := ErrorMessage{
+			Message: "Unknown action. Please try again.",
+		}
+		err = ws.WriteJSON(errorMsg)
+		if err != nil {
+			s.logger.Errorf("error writing unknown action error: %v", err)
+		}
+		return
+	}
+
+	// At this point, either:
+	// 1. The client is in a game room waiting for opponents
+	// 2. The game has started and GetPlay() handles communication
+	// 3. There was an error and we're returning
+
+	// Keep the connection alive until the client disconnects or game ends
+	// The game engine will handle all further communication via GetPlay()
+	s.waitForDisconnection(ws)
+}
+
+// handleStartGame processes the start game request
+func (s *Server) handleStartGame(client *Client, ws *websocket.Conn) error {
+	// Send waiting message
+	waitingMsg := JoinedGameRoomMessage{
+		Message: "Searching for an available game room. Please wait ...",
+	}
+	err := ws.WriteJSON(waitingMsg)
+	if err != nil {
+		return err
+	}
+
+	s.logger.Infof("Searching for an available game room to place client %s", client.UUID)
+	room, err := s.SearchAvailableGameRoom(engine.NUM_PLAYERS)
+	if err != nil {
+		errorMsg := "Error finding game room: " + err.Error()
+		return ws.WriteJSON(errorMsg)
+	}
+
+	s.logger.Debugf("Found room: %v", room)
+
+	// If room is available, add client to it
+	if room != nil {
+		return s.joinExistingRoom(client, room, ws)
+	}
+
+	// If no room is available, create a new one
+	return s.createNewRoom(client, ws)
+}
+
+// joinExistingRoom adds client to an existing room
+func (s *Server) joinExistingRoom(client *Client, room *GameRoom, ws *websocket.Conn) error {
+	room.AddClient(client)
+
+	joinedMsg := JoinedGameRoomMessage{
+		Message: "Joined game room. Waiting for an opponent to join ...",
+	}
+	s.logger.Infof("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
+	err := ws.WriteJSON(joinedMsg)
+	if err != nil {
+		return err
+	}
+
+	// If room is full, start the game
+	if room.IsFull() {
+		return s.startGameInRoom(room, ws)
+	}
+
+	return nil
+}
+
+// createNewRoom creates a new game room and adds the client
+func (s *Server) createNewRoom(client *Client, ws *websocket.Conn) error {
+	s.logger.Debugf("No room available. Creating a new room.")
+	room := NewGameRoom(s.config.logLevel)
+	s.logger.Debugf("New room created with UUID: %s", room.UUID)
+	s.AddRoom(room)
+
+	s.logger.Debugf("About to add client %s to room %s", client.UUID, room.UUID)
+	room.AddClient(client)
+	s.logger.Debugf("After adding client, room has %d clients", len(room.Clients))
+
+	joinedMsg := JoinedGameRoomMessage{
+		Message: "Joined game room. Waiting for an opponent to join ...",
+	}
+	s.logger.Infof("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
+	return ws.WriteJSON(joinedMsg)
+}
+
+// startGameInRoom initializes and starts a game in the given room
+func (s *Server) startGameInRoom(room *GameRoom, ws *websocket.Conn) error {
+	playersUsernames := room.GetClientsUsername()
+	config := engine.NewGameConfig(playersUsernames)
+	newGame := engine.NewGame(config, room.logger)
+	room.AddGame(newGame)
+	room.StartGame()
+
+	gameStartedMsg := GameStartedMessage{
+		Message: "Game started!",
+	}
+	return ws.WriteJSON(gameStartedMsg)
+}
+
+// handleRejoin processes rejoin requests (implement as needed)
+func (s *Server) handleRejoin() {
+	s.logger.Fatalf("Rejoin functionality not yet implemented.")
+}
+
+// waitForDisconnection keeps the connection alive until client disconnects
+func (s *Server) waitForDisconnection(ws *websocket.Conn) {
+	for {
+		var dummy interface{}
+		err := ws.ReadJSON(&dummy)
+		if err != nil {
+			s.logger.Infof("Client connection ended: %v", err)
+			break
+		}
+		s.logger.Debugf("Received unexpected message from client (ignoring): %v", dummy)
+	}
 }
 
 // Client defines a connected client

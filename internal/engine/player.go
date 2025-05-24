@@ -69,7 +69,7 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 
 	turnState := NewTurnState(p.Name)
 
-	log.Printf("DEBUG: TurnState: %v\r\n", turnState)
+	log.Printf("TurnState: %v\r\n", turnState)
 
 	for {
 		play := inputProvider.GetPlay(*table, *p.Hand, p.Name, *turnState)

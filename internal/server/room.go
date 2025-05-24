@@ -102,9 +102,9 @@ func (g *GameRoom) StartGame() {
 
 	inputProvider := make([]engine.InputProvider, len(g.Clients))
 	outputProvider := make([]engine.OutputProvider, len(g.Clients))
-	for i, client := range g.Clients { // i is index, client is the value
-		inputProvider[i] = NewWebsocketInputProvider(client.Conn)
-		outputProvider[i] = NewWebsocketOutputProvider(client.Conn)
+	for i, client := range g.Clients {
+		inputProvider[i] = NewWebsocketInputProvider(client.Conn, g.logger)
+		outputProvider[i] = NewWebsocketOutputProvider(client.Conn, *g.logger)
 	}
 	go g.Game.Start(inputProvider, outputProvider)
 }

@@ -3,17 +3,20 @@ package server
 import (
 	"log"
 	"mexemexe/internal/engine"
+	"mexemexe/internal/service"
 
 	"github.com/gorilla/websocket"
 )
 
 type WebsocketOutputProvider struct {
-	conn *websocket.Conn
+	conn   *websocket.Conn
+	logger service.GameLogger
 }
 
-func NewWebsocketOutputProvider(conn *websocket.Conn) WebsocketOutputProvider {
+func NewWebsocketOutputProvider(conn *websocket.Conn, logger service.GameLogger) WebsocketOutputProvider {
 	return WebsocketOutputProvider{
-		conn: conn,
+		conn:   conn,
+		logger: logger,
 	}
 }
 
@@ -22,19 +25,25 @@ func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
 }
 
 type WebsocketInputProvider struct {
-	conn *websocket.Conn
+	conn   *websocket.Conn
+	logger *service.GameLogger
 }
 
-func NewWebsocketInputProvider(conn *websocket.Conn) WebsocketInputProvider {
+func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger) WebsocketInputProvider {
 	return WebsocketInputProvider{
-		conn: conn,
+		conn:   conn,
+		logger: logger,
 	}
 }
 
 func (w WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
-	log.Printf("DEBUG: GetPlay - Table: %v\r\n", table)
-	log.Printf("DEBUG: GetPlay - Hand: %v\r\n", hand)
-	log.Printf("DEBUG: GetPlay - TurnState: %v\r\n", turnState)
+
+	w.logger.Infof("GetPlay - Table:")
+	table.Print()
+	w.logger.Info("GetPlay - Hand:\r\n")
+	hand.Print()
+	w.logger.Infof("GetPlay - TurnState: %v\r\n", turnState)
+	w.logger.Infof("GetPlay - PlayerName: %v\r\n", playerName)
 
 	gameStateMsg := GameStateMessage{
 		Table: table,

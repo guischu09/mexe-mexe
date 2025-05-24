@@ -147,6 +147,14 @@ func NewDeck(seed uint64) *Deck {
 	return &deck
 }
 
+func (g *Deck) String() string {
+	printDeck := ""
+	for i := range g.Cards {
+		printDeck += g.Cards[i].Name + " " + string(g.Cards[i].Symbol) + " "
+	}
+	return printDeck
+}
+
 func (g *Deck) Print() {
 	for i := 0; i < len(g.Cards); i++ {
 		fmt.Println(g.Cards[i].Name + " " + string(g.Cards[i].Symbol))

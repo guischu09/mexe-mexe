@@ -29,6 +29,14 @@ func (h *Hand) Print() {
 	fmt.Println(printHand)
 }
 
+func (h *Hand) String() string {
+	printHand := ""
+	for i := range h.Cards {
+		printHand += string(h.Cards[i].Symbol) + " "
+	}
+	return printHand
+}
+
 func (h *Hand) AddCard(card *Card) {
 	for i := range h.Cards {
 		if h.Cards[i].UUID == card.UUID {
