@@ -32,7 +32,7 @@ func NewRenderer(playerName string) *Rederer {
 		PlayerName:    playerName,
 		currentPos:    0,
 		selectedCount: 0,
-		selectedCards: []bool{false},
+		selectedCards: []bool{}, // Initialize as empty slice
 		turnState:     TurnState{},
 		freeze:        true,
 	}
@@ -42,6 +42,14 @@ func (r *Rederer) UpdateRenderer(table Table, hand Hand, turnState TurnState) {
 	r.Table = table
 	r.Hand = hand
 	r.turnState = turnState
+
+	// Resize selectedCards to match total cards
+	totalCards := len(hand.Cards) + len(table.Cards)
+	if len(r.selectedCards) != totalCards {
+		r.selectedCards = make([]bool, totalCards)
+		r.selectedCount = 0
+		r.currentPos = 0 // Reset position as well
+	}
 }
 
 func (r *Rederer) CreateHorizontalLine(char string) string {
@@ -351,6 +359,7 @@ func DisplayCardsToString(cards []Card, highlightPos int) string {
 
 func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 
+	// clear screen
 	fmt.Print("\033[H\033[2J")
 
 	// Get terminal state
@@ -368,8 +377,16 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 	}
 	r.Width = width
 
-	r.currentPos = 0
-	r.selectedCount = 0
+	// Combine cards from hand and table for navigation (same as UserInputDisplay)
+	allCards := slices.Clone(r.Hand.Cards)
+	tableCards := slices.Clone(r.Table.Cards)
+	allCards = append(allCards, tableCards...)
+
+	// Don't reset currentPos if we have cards - let player continue navigating
+	if len(allCards) > 0 && r.currentPos >= len(allCards) {
+		r.currentPos = len(allCards) - 1
+	}
+
 	statusMessage := ""
 
 	for {
@@ -411,6 +428,18 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 				statusMessage = "You cannot make a play now. Wait for your turn."
 				continue
 			}
+		} else if n == 3 && buffer[0] == 27 && buffer[1] == 91 {
+			// Handle arrow keys for navigation (same as UserInputDisplay)
+			switch buffer[2] {
+			case 68: // Left arrow
+				if r.currentPos > 0 {
+					r.currentPos--
+				}
+			case 67: // Right arrow
+				if r.currentPos < len(allCards)-1 {
+					r.currentPos++
+				}
+			}
 		}
 	}
 }
@@ -418,6 +447,10 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 func (r *Rederer) RenderScreen(statusMessage string) {
 
 	var screenBuffer strings.Builder
+
+	// Combine cards from hand and table for proper navigation display
+	allCards := slices.Clone(r.Hand.Cards)
+	allCards = append(allCards, slices.Clone(r.Table.Cards)...)
 
 	// Display table section
 	tableTitle := "\nTABLE"
@@ -436,9 +469,18 @@ func (r *Rederer) RenderScreen(statusMessage string) {
 
 	if len(r.Table.Cards) > 0 {
 		tableOffset := len(r.Hand.Cards)
-		tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, r.selectedCards[tableOffset:],
-			r.currentPos >= tableOffset, r.currentPos-tableOffset)
-		screenBuffer.WriteString(tableOutput)
+		// Ensure we don't go out of bounds and use proper navigation
+		if tableOffset < len(r.selectedCards) {
+			tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, r.selectedCards[tableOffset:],
+				r.currentPos >= tableOffset, r.currentPos-tableOffset)
+			screenBuffer.WriteString(tableOutput)
+		} else {
+			// Show navigation highlighting even without selection state
+			emptySelections := make([]bool, len(r.Table.Cards))
+			tableOutput := DisplayCardsWithSelectionToString(r.Table.Cards, emptySelections,
+				r.currentPos >= tableOffset, r.currentPos-tableOffset)
+			screenBuffer.WriteString(tableOutput)
+		}
 		screenBuffer.WriteString("\r\n\r\n")
 	} else {
 		screenBuffer.WriteString("\r\n\r\n")
@@ -457,29 +499,40 @@ func (r *Rederer) RenderScreen(statusMessage string) {
 	}
 
 	screenBuffer.WriteString(fmt.Sprintf("\r\n%s%s\r\n", handPadStr, handTitle))
-
 	handDivider := r.CreateHorizontalLine("-")[:r.Width]
 	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", handDivider))
 
-	handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, r.selectedCards[:len(r.Hand.Cards)],
-		r.currentPos < len(r.Hand.Cards), r.currentPos)
-	screenBuffer.WriteString(handOutput)
+	// Ensure we don't go out of bounds when accessing selectedCards
+	if len(r.Hand.Cards) <= len(r.selectedCards) {
+		handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, r.selectedCards[:len(r.Hand.Cards)],
+			r.currentPos < len(r.Hand.Cards), r.currentPos)
+		screenBuffer.WriteString(handOutput)
+	} else {
+		// Show navigation highlighting even without selection state
+		emptySelections := make([]bool, len(r.Hand.Cards))
+		handOutput := DisplayCardsWithSelectionToString(r.Hand.Cards, emptySelections,
+			r.currentPos < len(r.Hand.Cards), r.currentPos)
+		screenBuffer.WriteString(handOutput)
+	}
 
 	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", handDivider))
 
-	// Show selected cards
+	// Show selected cards - Fixed logic
 	if r.selectedCount > 0 {
 		selectedCardsList := []Card{}
 		for i, isSelected := range r.selectedCards {
-			if isSelected {
-				selectedCardsList = append(selectedCardsList, *r.Hand.Cards[i])
+			if isSelected && i < len(allCards) {
+				selectedCardsList = append(selectedCardsList, *allCards[i])
 			}
 		}
-		selectedOutput := DisplayCardsToString(selectedCardsList, -1)
-		screenBuffer.WriteString(selectedOutput)
+
+		if len(selectedCardsList) > 0 {
+			selectedOutput := DisplayCardsToString(selectedCardsList, -1)
+			screenBuffer.WriteString(selectedOutput)
+		}
 	}
 
-	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", "Wait for your turn. Press 'q' to quit."))
+	screenBuffer.WriteString(fmt.Sprintf("\r\n%s\r\n", "Wait for your turn. Press 'q' to quit. Use arrow keys to navigate."))
 	if statusMessage != "" {
 		screenBuffer.WriteString(fmt.Sprintf("\r\n\r\n%s\r\n", statusMessage))
 	}

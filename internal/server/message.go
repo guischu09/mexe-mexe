@@ -36,14 +36,13 @@ type GameStartedMessage struct {
 }
 
 type GameStateMessage struct {
-	Table engine.Table
-	Hand  engine.Hand
-	Deck  engine.Deck
-	Turn  engine.TurnState
+	Table engine.Table     `json:"table"`
+	Hand  engine.Hand      `json:"hand"`
+	Turn  engine.TurnState `json:"turn"`
 }
 
 type GamePlayMessage struct {
-	Play engine.Play
+	Play engine.Play `json:"play"`
 }
 
 type GameMessage struct {

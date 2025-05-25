@@ -38,6 +38,7 @@ func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger)
 
 func (w WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
 
+	w.logger.Infof("player: %s", playerName)
 	w.logger.Infof("GetPlay - Table:")
 	table.Print()
 	w.logger.Info("GetPlay - Hand:\r\n")

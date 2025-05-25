@@ -21,7 +21,8 @@ func main() {
 	var username string
 	fmt.Println("Lets play mexe-mexe!")
 	fmt.Println("To join a game room, please enter your username:")
-	fmt.Scanf("%s", &username)
+	username = "guilherme"
+	// fmt.Scanf("%s", &username)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	log.Printf("connecting to %s\n", u.String())
@@ -82,20 +83,25 @@ func main() {
 	fmt.Println(gameStartedMsg.Message)
 
 	renderer := engine.NewRenderer(username)
-
-	toServer := make(chan engine.Play)
-	fromServer := make(chan server.GameStateMessage)
 	stopDisplay := make(chan bool)
 
-	go SendToServer(ws, toServer)
-	go ListenFromServer(ws, fromServer)
-
-	// Game started!
+	// Game started! Handle the request-response pattern
 	for {
-		// Get Initial game state
-		gameState := <-fromServer
+		// Wait for game state from server
+		var gameState server.GameStateMessage
+		err := ws.ReadJSON(&gameState)
+		if err != nil {
+			log.Printf("error reading game state: %v", err)
+			return
+		}
 
-		// Sends a boolean to stopDisplay
+		fmt.Println("Received game state: ")
+		fmt.Println("Table")
+		gameState.Table.Print()
+		fmt.Println("Hand")
+		gameState.Hand.Print()
+
+		// Stop any existing display
 		select {
 		case stopDisplay <- true:
 		default:
@@ -103,44 +109,36 @@ func main() {
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != playerUUID
+
+		fmt.Println("This player uuid: ", playerUUID)
+		fmt.Println("Turn player uuid: ", gameState.Turn.PlayerUUID)
+
 		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
+
+		fmt.Println("Freeze: ", freeze)
 
 		var play engine.Play
 		if freeze {
 			play = renderer.DisplayScreen(stopDisplay)
-
 		} else {
 			play = renderer.UserInputDisplay(stopDisplay)
 		}
+
+		// Send the play back to server immediately
 		if play != nil {
-			toServer <- play
+			var gamePlayMsg server.GamePlayMessage
+			gamePlayMsg.Play = play
+
+			err := ws.WriteJSON(&gamePlayMsg)
+			if err != nil {
+				log.Printf("error writing to websocket: %v", err)
+				return
+			}
+
+			// If it's a quit play, break the loop
+			if play.GetName() == engine.QUIT {
+				break
+			}
 		}
 	}
-}
-
-func SendToServer(ws *websocket.Conn, toServer chan engine.Play) {
-	for {
-		play := <-toServer
-		var gamePlayMsg server.GamePlayMessage
-		gamePlayMsg.Play = play
-
-		err := ws.WriteJSON(&gamePlayMsg)
-		if err != nil {
-			log.Printf("error writing to websocket: %v", err)
-			return
-		}
-	}
-}
-
-func ListenFromServer(ws *websocket.Conn, fromServer chan server.GameStateMessage) {
-	for {
-		var gameStateMsg server.GameStateMessage
-		err := ws.ReadJSON(&gameStateMsg)
-		if err != nil {
-			log.Printf("error: %v", err)
-			return
-		}
-		fromServer <- gameStateMsg
-	}
-
 }

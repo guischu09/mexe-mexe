@@ -100,11 +100,29 @@ func (g *GameRoom) StartGame() {
 	defer g.mu.Unlock()
 	g.GameStarted = true
 
+	var GameState GameStateMessage
+
 	inputProvider := make([]engine.InputProvider, len(g.Clients))
 	outputProvider := make([]engine.OutputProvider, len(g.Clients))
+
+	firstPlayer := g.Clients[0]
+
 	for i, client := range g.Clients {
 		inputProvider[i] = NewWebsocketInputProvider(client.Conn, g.logger)
 		outputProvider[i] = NewWebsocketOutputProvider(client.Conn, *g.logger)
+
+		GameState = GameStateMessage{
+			Table: g.Game.Table,
+			Hand:  *g.Game.Players[i].Hand,
+			Turn:  *engine.NewTurnState(firstPlayer.UUID),
+		}
+		err := client.Conn.WriteJSON(GameState)
+		if err != nil {
+			g.logger.Errorf("error writing to websocket: %v", err)
+			return
+		}
+		g.logger.Debugf("Sent game state to client %s", client.UUID)
 	}
+
 	go g.Game.Start(inputProvider, outputProvider)
 }

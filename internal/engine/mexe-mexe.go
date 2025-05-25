@@ -125,6 +125,8 @@ func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvi
 	g.logger.Infof("Deck: %v\r\n", g.Deck.Size)
 	g.logger.Infof("Table: %v\r\n", g.Table.Size)
 
+	
+
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			g.ValidadeGame()
