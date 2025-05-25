@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -175,6 +176,7 @@ func parseRemoteAddr(addr string) (string, string) {
 }
 
 // HandleConnections handles incoming websocket connections to the server
+// HandleConnections handles incoming websocket connections to the server
 func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 	// Establish a websocket connection
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -254,16 +256,9 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 	// Handle the start message
 	switch startMsg.Action {
 	case "start":
-		gameStarted, err := s.handleStartGame(newClient, ws)
+		err := s.handleStartGame(newClient, ws)
 		if err != nil {
 			s.logger.Errorf("error handling start game: %v", err)
-			return
-		}
-
-		// If game started, let the game engine handle all communication
-		// Do NOT call waitForDisconnection() - the game will handle the connection
-		if gameStarted {
-			s.logger.Infof("Game started for client %s, transferring control to game engine", newClient.UUID)
 			return
 		}
 
@@ -282,26 +277,38 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only call waitForDisconnection if no game was started
-	// (i.e., client is waiting for opponents)
-	s.waitForDisconnection(ws)
+	// After handling start game, just wait for the connection to close
+	// Don't try to read any more messages - let the game engine handle everything
+	s.logger.Infof("Client %s setup complete, waiting for natural disconnection", newClient.UUID)
+
+	// Just wait for connection to close, don't read messages
+	for {
+		// Set a read deadline to periodically check if connection is still alive
+		ws.SetReadDeadline(time.Now().Add(30 * time.Second))
+		_, _, err := ws.ReadMessage()
+		if err != nil {
+			s.logger.Infof("Client connection ended: %v", err)
+			break
+		}
+		// If we receive any message, just ignore it - the game engine should handle it
+	}
 }
 
 // handleStartGame processes the start game request
-func (s *Server) handleStartGame(client *Client, ws *websocket.Conn) (bool, error) {
+func (s *Server) handleStartGame(client *Client, ws *websocket.Conn) error {
 	waitingMsg := JoinedGameRoomMessage{
 		Message: "Searching for an available game room. Please wait ...",
 	}
 	err := ws.WriteJSON(waitingMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	s.logger.Infof("Searching for an available game room to place client %s", client.UUID)
 	room, err := s.SearchAvailableGameRoom(engine.NUM_PLAYERS)
 	if err != nil {
 		errorMsg := "Error finding game room: " + err.Error()
-		return false, ws.WriteJSON(errorMsg)
+		return ws.WriteJSON(errorMsg)
 	}
 
 	s.logger.Debugf("Found room: %v", room)
@@ -316,7 +323,7 @@ func (s *Server) handleStartGame(client *Client, ws *websocket.Conn) (bool, erro
 }
 
 // joinExistingRoom adds client to an existing room
-func (s *Server) joinExistingRoom(client *Client, room *GameRoom, ws *websocket.Conn) (bool, error) {
+func (s *Server) joinExistingRoom(client *Client, room *GameRoom, ws *websocket.Conn) error {
 	room.AddClient(client)
 
 	joinedMsg := JoinedGameRoomMessage{
@@ -325,20 +332,19 @@ func (s *Server) joinExistingRoom(client *Client, room *GameRoom, ws *websocket.
 	s.logger.Infof("Client %s joined game room: %s.", client.UUID, room.UUID)
 	err := ws.WriteJSON(joinedMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// If room is full, start the game
 	if room.IsFull() {
-		s.startGameInRoom(room, ws)
-		return true, nil // Game started!
+		s.startGameInRoom(room)
 	}
 
-	return false, nil // Game not started, still waiting
+	return nil
 }
 
 // createNewRoom creates a new game room and adds the client
-func (s *Server) createNewRoom(client *Client, ws *websocket.Conn) (bool, error) {
+func (s *Server) createNewRoom(client *Client, ws *websocket.Conn) error {
 	s.logger.Debugf("No room available. Creating a new room.")
 	room := NewGameRoom(s.config.logLevel)
 	s.logger.Debugf("New room created with UUID: %s", room.UUID)
@@ -353,16 +359,17 @@ func (s *Server) createNewRoom(client *Client, ws *websocket.Conn) (bool, error)
 		Message: "Joined game room. Waiting for an opponent to join ...",
 	}
 	s.logger.Infof("Joined game room: %s. Waiting for an opponent to join ...", room.UUID)
-	err := ws.WriteJSON(joinedMsg)
-	return false, err // Game not started, still waiting
+	return ws.WriteJSON(joinedMsg)
 }
 
 // startGameInRoom initializes and starts a game in the given room
-func (s *Server) startGameInRoom(room *GameRoom, ws *websocket.Conn) {
+func (s *Server) startGameInRoom(room *GameRoom) {
 	playersUsernames := room.GetClientsUsername()
 	config := engine.NewGameConfig(playersUsernames)
 	newGame := engine.NewGame(config, room.logger)
 	room.AddGame(newGame)
+
+	// Don't send separate "Game started!" message - the initial game state serves this purpose
 	room.StartGame()
 	s.logger.Infof("Game in room %s started!", room.UUID)
 }
@@ -370,20 +377,6 @@ func (s *Server) startGameInRoom(room *GameRoom, ws *websocket.Conn) {
 // handleRejoin processes rejoin requests (implement as needed)
 func (s *Server) handleRejoin() {
 	s.logger.Fatalf("Rejoin functionality not yet implemented.")
-}
-
-// waitForDisconnection keeps the connection alive until client disconnects
-func (s *Server) waitForDisconnection(ws *websocket.Conn) {
-	s.logger.Infof("Client waiting for opponents, monitoring connection...")
-	for {
-		var dummy interface{}
-		err := ws.ReadJSON(&dummy)
-		if err != nil {
-			s.logger.Infof("Client connection ended: %v", err)
-			break
-		}
-		s.logger.Debugf("Received unexpected message from waiting client (ignoring): %v", dummy)
-	}
 }
 
 // Client defines a connected client
