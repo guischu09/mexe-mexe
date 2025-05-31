@@ -141,7 +141,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 					continue
 				}
 				if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
-					return NewQuitPlay("q")
+					return NewQuitPlay()
 				} else {
 					fmt.Print("\033[H\033[2J")
 					continue
@@ -156,7 +156,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 
 			case 'd':
 				if !r.turnState.HasDrawedCard {
-					return NewDrawCardPlay("d")
+					return NewDrawCardPlay()
 				} else {
 					statusMessage = "You can't draw a card twice in a turn."
 					continue
@@ -164,7 +164,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 
 			case 'e':
 				if r.turnState.HasPlayedMeld || r.turnState.HasDrawedCard {
-					return NewEndTurnPlay("e")
+					return NewEndTurnPlay()
 				} else {
 					statusMessage = "You must play a meld or draw a card before ending the turn."
 					continue
@@ -176,7 +176,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 					continue
 				}
 
-				var selectedMeldCards []*Card
+				var selectedMeldCards []Card
 				var handCardUUIDs = make(map[uint8]bool) // Track hand card UUIDs
 
 				// First, build a map of all hand card UUIDs for quick lookup
@@ -185,19 +185,19 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 				}
 
 				// Track which selected cards are from hand vs table
-				var handSelectedCards []*Card
-				var tableSelectedCards []*Card
+				var handSelectedCards []Card
+				var tableSelectedCards []Card
 
 				for i, isSelected := range r.selectedCards {
 					if isSelected {
 						card := allCards[i]
-						selectedMeldCards = append(selectedMeldCards, card)
+						selectedMeldCards = append(selectedMeldCards, *card)
 
 						// Check if this card is from the hand by UUID
 						if handCardUUIDs[card.UUID] {
-							handSelectedCards = append(handSelectedCards, card)
+							handSelectedCards = append(handSelectedCards, *card)
 						} else {
-							tableSelectedCards = append(tableSelectedCards, card)
+							tableSelectedCards = append(tableSelectedCards, *card)
 						}
 					}
 				}
@@ -213,7 +213,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 				fmt.Print("\033[H\033[2J") // Clear screen
 
 				// Only pass the hand cards to be moved
-				return NewMeldPlay("m", handSelectedCards)
+				return NewMeldPlay(handSelectedCards)
 			}
 		} else if n == 3 && buffer[0] == 27 && buffer[1] == 91 {
 			switch buffer[2] {
@@ -419,7 +419,7 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 					continue
 				}
 				if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
-					return NewQuitPlay("q")
+					return NewQuitPlay()
 				} else {
 					fmt.Print("\033[H\033[2J")
 					continue

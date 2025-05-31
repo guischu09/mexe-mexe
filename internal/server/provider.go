@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"log"
 	"mexemexe/internal/engine"
 	"mexemexe/internal/service"
@@ -29,8 +30,8 @@ type WebsocketInputProvider struct {
 	logger *service.GameLogger
 }
 
-func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger) WebsocketInputProvider {
-	return WebsocketInputProvider{
+func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger) *WebsocketInputProvider {
+	return &WebsocketInputProvider{
 		conn:   conn,
 		logger: logger,
 	}
@@ -40,47 +41,50 @@ func (w WebsocketInputProvider) IsConnected() bool {
 	return true
 }
 
-func (w WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
-
-	w.logger.Infof("player name turn: %s", playerName)
-	w.logger.Infof("GetPlay - Table:")
-	table.Print()
-	w.logger.Info("GetPlay - Hand:\r\n")
-	hand.Print()
-	w.logger.Infof("GetPlay - TurnState: %v\r\n", turnState)
-
-	gameStateMsg := GameStateMessage{
-		Table: table,
-		Hand:  hand,
-		Turn:  turnState,
+func (w *WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
+	type RawGamePlayMessage struct {
+		Play json.RawMessage `json:"play"`
 	}
 
-	// Send the game state to the client
-	err := w.conn.WriteJSON(&gameStateMsg)
+	var rawMsg RawGamePlayMessage
+	err := w.conn.ReadJSON(&rawMsg)
 	if err != nil {
-		log.Printf("error writing to websocket: %v", err)
-		log.Println("Closing connection")
-		w.conn.Close()
-		// Return a "quit" play instead of nil
-		return engine.NewQuitPlay("connection_lost")
+		w.logger.Errorf("error reading from websocket: %v", err)
+		return engine.NewQuitPlay()
 	}
 
-	// Read the client's move
-	var gamePlayMsg GamePlayMessage
-	err = w.conn.ReadJSON(&gamePlayMsg)
+	// Detect play type
+	type TypeDetector struct {
+		Type string `json:"type"`
+	}
+
+	var detector TypeDetector
+	err = json.Unmarshal(rawMsg.Play, &detector)
 	if err != nil {
-		log.Printf("error reading from websocket: %v", err)
-		log.Println("Closing connection")
-		w.conn.Close()
-		// Return a "quit" play instead of nil
-		return engine.NewQuitPlay("connection_lost")
+		w.logger.Errorf("error detecting play type: %v", err)
+		return engine.NewQuitPlay()
 	}
 
-	// Handle case where Play might be nil
-	if gamePlayMsg.Play == nil {
-		log.Printf("warning: received nil play from client, treating as quit")
-		return engine.NewQuitPlay("nil_play")
-	}
+	w.logger.Infof("Detected play type: %s", detector.Type)
 
-	return gamePlayMsg.Play
+	// Create concrete Play based on type
+	switch detector.Type {
+	case "DRAW_CARD":
+		return engine.NewDrawCardPlay()
+	case "END_TURN":
+		return engine.NewEndTurnPlay()
+	case "QUIT":
+		return engine.NewQuitPlay()
+	case "PLAY_MELD":
+		var meldData engine.MeldPlay
+		err = json.Unmarshal(rawMsg.Play, &meldData)
+		if err != nil {
+			w.logger.Errorf("error parsing meld: %v", err)
+			return engine.NewQuitPlay()
+		}
+		return meldData
+	default:
+		w.logger.Errorf("unknown play type: %s", detector.Type)
+		return engine.NewQuitPlay()
+	}
 }

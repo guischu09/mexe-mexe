@@ -1,6 +1,6 @@
 package engine
 
-func SortCardsByValue(cards []*Card) {
+func SortCardsByValue(cards []Card) {
 	for i := 0; i < len(cards); i++ {
 		for j := i + 1; j < len(cards); j++ {
 			if cards[i].Value > cards[j].Value {
@@ -10,7 +10,7 @@ func SortCardsByValue(cards []*Card) {
 	}
 }
 
-func SortCardsBySuit(cards []*Card) {
+func SortCardsBySuit(cards []Card) {
 	suitOrder := map[CardSuit]int{
 		SPADE:   0,
 		CLUB:    1,

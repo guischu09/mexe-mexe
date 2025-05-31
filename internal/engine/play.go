@@ -5,98 +5,92 @@ import "log"
 type AvailablePlay string
 
 const (
-	PLAY_MELD    AvailablePlay = "PLAY_MELD"
-	DRAW_CARD    AvailablePlay = "DRAW_CARD"
-	QUIT         AvailablePlay = "QUIT"
-	END_TURN     AvailablePlay = "END_TURN"
-	SELECT_HAND  AvailablePlay = "SELECT_HAND"
-	SELECT_TABLE AvailablePlay = "SELECT_TABLE"
+	PLAY_MELD AvailablePlay = "PLAY_MELD"
+	DRAW_CARD AvailablePlay = "DRAW_CARD"
+	QUIT      AvailablePlay = "QUIT"
+	END_TURN  AvailablePlay = "END_TURN"
+	// SELECT_HAND  AvailablePlay = "SELECT_HAND" deprecated
+	// SELECT_TABLE AvailablePlay = "SELECT_TABLE" deprecated
 )
 
 type Play interface {
 	GetName() AvailablePlay
-	GetCards() []*Card
+	GetCards() []Card
 }
 
 type QuitPlay struct {
-	Command string
+	Type string `json:"type"`
+}
+
+func NewQuitPlay() QuitPlay {
+	return QuitPlay{Type: "QUIT"}
 }
 
 func (q QuitPlay) GetName() AvailablePlay {
 	return QUIT
 }
-func (p QuitPlay) GetCards() []*Card {
+func (p QuitPlay) GetCards() []Card {
 	log.Println("No cards used for this play")
 	return nil
 }
 
-func NewQuitPlay(command string) QuitPlay {
-	return QuitPlay{
-		Command: command,
-	}
+type EndTurnPlay struct {
+	Type string `json:"type"`
 }
 
-type EndTurnPlay struct {
-	Command string
+func NewEndTurnPlay() EndTurnPlay {
+	return EndTurnPlay{Type: "END_TURN"}
 }
 
 func (p EndTurnPlay) GetName() AvailablePlay {
 	return END_TURN
 }
 
-func (p EndTurnPlay) GetCards() []*Card {
+func (p EndTurnPlay) GetCards() []Card {
 	log.Println("No cards used for this play")
 	return nil
 }
-func NewEndTurnPlay(command string) EndTurnPlay {
-	return EndTurnPlay{
-		Command: command,
-	}
-}
 
 type MeldPlay struct {
-	Command string
-	Cards   []*Card
+	Type  string `json:"type"`
+	Cards []Card `json:"cards"`
 }
 
+func NewMeldPlay(cards []Card) MeldPlay {
+	return MeldPlay{
+		Type:  "PLAY_MELD",
+		Cards: cards,
+	}
+}
 func (m MeldPlay) GetName() AvailablePlay {
 	return PLAY_MELD
 }
 
-func (m MeldPlay) GetCards() []*Card {
+func (m MeldPlay) GetCards() []Card {
 	return m.Cards
 }
 
-func NewMeldPlay(command string, cards []*Card) MeldPlay {
-	return MeldPlay{
-		Command: command,
-		Cards:   cards,
-	}
+type DrawCardPlay struct {
+	Type string `json:"type"`
 }
 
-type DrawCardPlay struct {
-	Command string
+func NewDrawCardPlay() DrawCardPlay {
+	return DrawCardPlay{Type: "DRAW_CARD"}
 }
 
 func (d DrawCardPlay) GetName() AvailablePlay {
 	return DRAW_CARD
 }
-func (p DrawCardPlay) GetCards() []*Card {
+func (p DrawCardPlay) GetCards() []Card {
 	log.Println("No cards used for this play")
 	return nil
-}
-
-func NewDrawCardPlay(command string) DrawCardPlay {
-	return DrawCardPlay{
-		Command: command,
-	}
 }
 
 func IsValid(turnState *TurnState, play Play, outputProvider OutputProvider) bool {
 	switch play.GetName() {
 
 	case PLAY_MELD:
-		return true
+		return true // Meld is validated at client side
 
 	case END_TURN:
 
@@ -134,22 +128,23 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 	switch play.GetName() {
 
 	case PLAY_MELD:
+		log.Print("player :: !> Playing meld")
 		for _, card := range play.GetCards() {
 			if player.Hand.Contains(card) {
 				player.Hand.RemoveCard(card)
-				table.AddCard(card)
+				table.AddCard(&card)
 			}
 		}
 		return
 
 	case DRAW_CARD:
+		log.Print("player :: !> Playing draw card")
 		card := deck.DrawCard()
-		card.Print()
 		player.Hand.AddCard(card)
-		player.Hand.Print()
 		return
 
 	case END_TURN:
+		log.Print("player :: !> Passing turn")
 		outputProvider.Write("message", "Passing turn")
 		return
 

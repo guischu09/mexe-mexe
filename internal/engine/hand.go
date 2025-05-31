@@ -10,7 +10,7 @@ type Hand struct {
 	Size  int
 }
 
-func (h *Hand) RemoveCard(card *Card) bool {
+func (h *Hand) RemoveCard(card Card) bool {
 	for i := range h.Cards {
 		if h.Cards[i].UUID == card.UUID {
 			h.Cards = slices.Delete(h.Cards, i, i+1)
@@ -55,7 +55,7 @@ func (h *Hand) updateSize() {
 	h.Size = len(h.Cards)
 }
 
-func (h *Hand) Contains(card *Card) bool {
+func (h *Hand) Contains(card Card) bool {
 	for i := range h.Cards {
 		if h.Cards[i].UUID == card.UUID {
 			return true

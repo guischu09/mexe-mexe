@@ -71,11 +71,12 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 
 	turnState := NewTurnState(p.Name)
 
-	log.Printf("TurnState: %v\r\n", turnState)
-
 	for {
 		play := inputProvider.GetPlay(*table, *p.Hand, p.Name, *turnState)
+		log.Print("player :: !> Got Play: ", play.GetName())
 		if IsValid(turnState, play, outputProvider) {
+			log.Print("player :: !> Play is valid")
+
 			MakePlay(play, deck, table, p, outputProvider)
 
 			if play.GetName() == DRAW_CARD {
@@ -91,6 +92,7 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 			return play.GetName()
 
 		} else {
+			log.Print("player :: !> Play is valid")
 			fmt.Println("Invalid play! Please try again.")
 		}
 	}

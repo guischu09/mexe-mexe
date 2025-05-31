@@ -1,0 +1,79 @@
+WebSocket Game Server Architecture Summary
+Project Context
+Building a turn-based card game server in Go with WebSocket connections. The architecture emphasizes clean separation of concerns with independent, swappable components.
+Core Design Philosophy
+
+Game engine is transport-agnostic: Uses InputProvider and OutputProvider interfaces so it can work with WebSockets, CLI, AI, etc.
+Independent components: Each part (server, game engine, connection handling) has clear responsibilities
+Interface-driven: Game engine works with abstractions, not concrete implementations
+
+Architecture Flow
+1. Connection & Lobby Phase (Server Responsibility)
+Client → WebSocket → Server.HandleConnections()
+├── Read JoinServerMessage 
+├── Authenticate user
+├── Send WelcomeMessage
+├── Read StartGameMessage  
+├── Create/join GameRoom
+└── When room full (2 players) → Start game
+2. Game Handoff (Critical Transition)
+Server creates:
+├── engine.Game (with shuffled player order)
+├── WebsocketInputProvider for each client  
+├── WebsocketOutputProvider for each client
+└── Calls room.StartGame() → game.Start() in goroutine
+Key Issue Resolved: Server must stop reading from WebSocket after game starts to avoid conflicts with game engine's input providers.
+3. Game Phase (Engine Responsibility)
+Game Engine Loop:
+├── For each player's turn:
+│   ├── Call inputProvider.GetPlay() → blocks on WebSocket
+│   ├── Validate play with IsValid()
+│   ├── Execute play with MakePlay()
+│   └── Update game state
+└── Continue until win/quit condition
+Technical Challenge Solved: JSON Interface Serialization
+Problem: Cannot directly serialize/deserialize Go interfaces (engine.Play) over JSON.
+Solution: Type-based discrimination pattern:
+go// Play structs include type field
+type DrawCardPlay struct {
+    Type string `json:"type"` // "DRAW_CARD"
+}
+
+// Server detects type, creates concrete Play
+switch detector.Type {
+case "DRAW_CARD":
+    return engine.NewDrawCardPlay()
+// ...
+}
+Key Components
+Game Engine Interface
+gotype InputProvider interface {
+    GetPlay(Table, Hand, string, TurnState) Play
+}
+
+type Play interface {
+    GetName() AvailablePlay  // DRAW_CARD, PLAY_MELD, END_TURN, QUIT
+    GetCards() []*Card
+}
+WebSocket Flow
+
+Client sends: {"play": {"type": "DRAW_CARD"}}
+Server parses: Creates concrete DrawCardPlay
+Engine uses: play.GetName() for game logic
+
+Current State
+
+✅ Connection handling & lobby system
+✅ Game engine with turn-based logic
+✅ WebSocket input/output providers
+✅ JSON serialization for Play interface
+🔄 Current focus: Testing complete client-server game flow
+
+Attitude & Approach
+
+Pragmatic: Get core functionality working before optimizing
+Interface-focused: Keep components loosely coupled
+Problem-solving: Address specific technical hurdles (like JSON interfaces) with clean solutions
+Iterative: Build and test incrementally, avoiding over-engineering
+
+The human values clean architecture and is methodically building a robust foundation before adding complexity like persistence, reconnection handling, or scaling concerns.

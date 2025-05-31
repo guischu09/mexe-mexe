@@ -124,6 +124,8 @@ func main() {
 			play = renderer.UserInputDisplay(stopDisplay)
 		}
 
+		fmt.Println("Play: ", play)
+
 		// Send the play back to server immediately
 		if play != nil {
 			var gamePlayMsg server.GamePlayMessage
