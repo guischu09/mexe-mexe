@@ -43,13 +43,15 @@ type Player struct {
 	Name   string
 	Hand   *Hand
 	Points uint32
+	UUID   string
 }
 
-func NewPlayer(name string, hand *Hand, points uint32) Player {
+func NewPlayer(name string, hand *Hand, uuid string, points uint32) Player {
 	return Player{
 		Name:   name,
 		Hand:   hand,
 		Points: points,
+		UUID:   uuid,
 	}
 }
 

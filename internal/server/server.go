@@ -377,8 +377,9 @@ func (s *Server) createNewRoom() *GameRoom {
 
 // startGameInRoom initializes and starts a game in the given room
 func (s *Server) startGameInRoom(room *GameRoom) {
+	playersUUIDs := room.GetClientsUUID()
 	playersUsernames := room.GetClientsUsername()
-	config := engine.NewGameConfig(playersUsernames)
+	config := engine.NewGameConfig(playersUsernames, playersUUIDs)
 	newGame := engine.NewGame(config, room.logger)
 	room.AddGame(newGame)
 

@@ -76,6 +76,16 @@ func (g *GameRoom) GetClientsUsername() []string {
 	return usernames
 }
 
+func (g *GameRoom) GetClientsUUID() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	uuids := make([]string, len(g.Clients))
+	for i, client := range g.Clients {
+		uuids[i] = client.UUID
+	}
+	return uuids
+}
+
 func (g *GameRoom) IsFull() bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -100,29 +110,46 @@ func (g *GameRoom) StartGame() {
 	defer g.mu.Unlock()
 	g.GameStarted = true
 
-	var GameState GameStateMessage
+	inputProvider := make([]engine.InputProvider, len(g.Game.Players))
+	outputProvider := make([]engine.OutputProvider, len(g.Game.Players))
 
-	inputProvider := make([]engine.InputProvider, len(g.Clients))
-	outputProvider := make([]engine.OutputProvider, len(g.Clients))
+	firstPlayer := g.Game.Players[0]
 
-	firstPlayer := g.Clients[0]
-
-	for i, client := range g.Clients {
-		inputProvider[i] = NewWebsocketInputProvider(client.Conn, g.logger)
-		outputProvider[i] = NewWebsocketOutputProvider(client.Conn, *g.logger)
-
-		GameState = GameStateMessage{
-			Table: g.Game.Table,
-			Hand:  *g.Game.Players[i].Hand,
-			Turn:  *engine.NewTurnState(firstPlayer.UUID),
+	for i, player := range g.Game.Players {
+		// Find the matching client for this player
+		var matchingClient *Client
+		for _, client := range g.Clients {
+			if player.UUID == client.UUID {
+				matchingClient = client
+				break
+			}
 		}
-		err := client.Conn.WriteJSON(GameState)
-		if err != nil {
-			g.logger.Errorf("error writing to websocket: %v", err)
+
+		if matchingClient == nil {
+			g.logger.Errorf("No matching client found for player %s (UUID: %s)",
+				player.Name, player.UUID)
 			return
 		}
-		g.logger.Debugf("Sent game state to client %s", client.UUID)
+
+		inputProvider[i] = NewWebsocketInputProvider(matchingClient.Conn, g.logger)
+		outputProvider[i] = NewWebsocketOutputProvider(matchingClient.Conn, *g.logger)
+
+		gameState := GameStateMessage{
+			Table: g.Game.Table,
+			Hand:  *player.Hand,
+			Turn:  *engine.NewTurnState(firstPlayer.UUID),
+		}
+
+		err := matchingClient.Conn.WriteJSON(gameState)
+		if err != nil {
+			g.logger.Errorf("error writing game state to client %s: %v",
+				matchingClient.UUID, err)
+			return
+		}
+		g.logger.Debugf("Sent game state to player %s (client %s)",
+			player.Name, matchingClient.UUID)
 	}
 
+	// Start the game engine in a separate goroutine
 	go g.Game.Start(inputProvider, outputProvider)
 }

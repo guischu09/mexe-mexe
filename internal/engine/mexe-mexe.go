@@ -42,16 +42,18 @@ type GameOptions struct {
 type GameConfig struct {
 	Seed              uint64
 	PlayersName       []string
+	PlayersUUID       []string
 	NumPlayers        uint8
 	NumCards          uint8
 	RandomPlayerOrder bool
 	TotalCards        uint8
 }
 
-func NewGameConfig(playersNames []string) *GameConfig {
+func NewGameConfig(playersNames []string, playersUUID []string) *GameConfig {
 	gameConfig := GameConfig{
 		Seed:              UNIQUE_SHUFFLE_SEED,
 		PlayersName:       playersNames,
+		PlayersUUID:       playersUUID,
 		NumPlayers:        uint8(len(playersNames)),
 		NumCards:          NUM_CARDS,
 		RandomPlayerOrder: true,
@@ -84,10 +86,9 @@ func NewGame(config *GameConfig, logger *service.GameLogger) *Game {
 	players := make([]Player, config.NumPlayers)
 	deck := NewDeck(config.Seed)
 
-	for i := 0; i < int(config.NumPlayers); i++ {
+	for i, uuid := range config.PlayersUUID {
 		newHand := NewHandFromDeck(deck, config.NumCards)
-
-		players[i] = NewPlayer(config.PlayersName[i], newHand, INITIAL_POINTS)
+		players[i] = NewPlayer(config.PlayersName[i], newHand, uuid, INITIAL_POINTS)
 	}
 
 	if config.RandomPlayerOrder {
@@ -124,8 +125,6 @@ func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvi
 	g.logger.Infof("Players: %v\r\n", len(g.Players))
 	g.logger.Infof("Deck: %v\r\n", g.Deck.Size)
 	g.logger.Infof("Table: %v\r\n", g.Table.Size)
-
-	
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {

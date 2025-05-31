@@ -42,13 +42,12 @@ func (w WebsocketInputProvider) IsConnected() bool {
 
 func (w WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
 
-	w.logger.Infof("player: %s", playerName)
+	w.logger.Infof("player name turn: %s", playerName)
 	w.logger.Infof("GetPlay - Table:")
 	table.Print()
 	w.logger.Info("GetPlay - Hand:\r\n")
 	hand.Print()
 	w.logger.Infof("GetPlay - TurnState: %v\r\n", turnState)
-	w.logger.Infof("GetPlay - PlayerName: %v\r\n", playerName)
 
 	gameStateMsg := GameStateMessage{
 		Table: table,
