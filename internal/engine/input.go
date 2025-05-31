@@ -2,6 +2,7 @@ package engine
 
 type InputProvider interface {
 	GetPlay(Table, Hand, string, TurnState) Play
+	IsConnected() bool
 }
 
 type TerminalInputProvider struct{}

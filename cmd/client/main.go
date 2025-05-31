@@ -21,8 +21,8 @@ func main() {
 	var username string
 	fmt.Println("Lets play mexe-mexe!")
 	fmt.Println("To join a game room, please enter your username:")
-	username = "guilherme"
-	// fmt.Scanf("%s", &username)
+	// username = "guilherme"
+	fmt.Scanf("%s", &username)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	log.Printf("connecting to %s\n", u.String())

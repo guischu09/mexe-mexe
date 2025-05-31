@@ -36,6 +36,10 @@ func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger)
 	}
 }
 
+func (w WebsocketInputProvider) IsConnected() bool {
+	return true
+}
+
 func (w WebsocketInputProvider) GetPlay(table engine.Table, hand engine.Hand, playerName string, turnState engine.TurnState) engine.Play {
 
 	w.logger.Infof("player: %s", playerName)
