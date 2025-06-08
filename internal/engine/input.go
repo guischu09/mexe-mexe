@@ -12,7 +12,7 @@ type RawGamePlayMessage struct {
 }
 
 type InputProvider interface {
-	GetPlay(*Table, Hand, string, TurnState) Play
+	GetPlay(TurnState) Play
 	IsConnected() bool
 }
 
@@ -43,7 +43,7 @@ func (w WebsocketInputProvider) IsConnected() bool {
 	return true
 }
 
-func (w *WebsocketInputProvider) GetPlay(table *Table, hand Hand, playerName string, turnState TurnState) Play {
+func (w *WebsocketInputProvider) GetPlay(turnState TurnState) Play {
 
 	var rawMsg RawGamePlayMessage
 	err := w.conn.ReadJSON(&rawMsg)
@@ -75,13 +75,13 @@ func (w *WebsocketInputProvider) GetPlay(table *Table, hand Hand, playerName str
 	case "QUIT":
 		return NewQuitPlay()
 	case "PLAY_MELD":
-		var meldData MeldPlay
-		err = json.Unmarshal(rawMsg.Play, &meldData)
+		var meldPlay MeldPlay
+		err = json.Unmarshal(rawMsg.Play, &meldPlay)
 		if err != nil {
 			w.logger.Errorf("error parsing meld: %v", err)
 			return NewQuitPlay()
 		}
-		return meldData
+		return NewMeldPlay(meldPlay.Cards)
 	default:
 		w.logger.Errorf("unknown play type: %s", detector.Type)
 		return NewQuitPlay()

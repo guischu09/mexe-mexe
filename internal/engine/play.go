@@ -130,6 +130,7 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 	case PLAY_MELD:
 		log.Print("player :: !> Playing meld")
 		for _, card := range play.GetCards() {
+			card.Print()
 			if player.Hand.Contains(card) {
 				player.Hand.RemoveCard(card)
 				table.AddCard(&card)

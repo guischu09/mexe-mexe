@@ -3,19 +3,14 @@ package engine
 import (
 	"fmt"
 	"slices"
-	"sync"
 )
 
 type Table struct {
 	Cards []*Card
 	Size  int
-	mu    sync.Mutex
 }
 
 func (t *Table) RemoveCard(card *Card) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	for i := 0; i < len(t.Cards); i++ {
 		if t.Cards[i].UUID == card.UUID {
 			t.Cards = slices.Delete(t.Cards, i, i+1)
@@ -35,9 +30,6 @@ func (t *Table) Print() {
 }
 
 func (t *Table) Contains(card *Card) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	for i := 0; i < len(t.Cards); i++ {
 		if t.Cards[i].UUID == card.UUID {
 			return true
@@ -47,9 +39,6 @@ func (t *Table) Contains(card *Card) bool {
 }
 
 func (t *Table) AddCard(card *Card) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	for i := range t.Cards {
 		if t.Cards[i].UUID == card.UUID {
 			return
@@ -60,7 +49,5 @@ func (t *Table) AddCard(card *Card) {
 }
 
 func (t *Table) updateSize() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	t.Size = len(t.Cards)
 }

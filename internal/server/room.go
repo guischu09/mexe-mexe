@@ -131,7 +131,7 @@ func (g *GameRoom) StartGame() {
 		}
 
 		inputProvider[i] = engine.NewWebsocketInputProvider(matchingClient.Conn, g.logger)
-		outputProvider[i] = engine.NewWebsocketOutputProvider(matchingClient.Conn, *g.logger)
+		outputProvider[i] = engine.NewWebsocketOutputProvider(matchingClient.Conn, g.logger)
 
 		gameState := GameStateMessage{
 			Table: g.Game.Table,

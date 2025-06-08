@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+type RawGamePlayMessage struct {
+	Play json.RawMessage `json:"play"`
+}
 
 var addr = flag.String("addr", "192.168.15.6:8888", "http service address")
 
@@ -95,17 +100,16 @@ func main() {
 			log.Printf("error reading game state: %v", err)
 			return
 		}
+
 		fmt.Println("DEBUG: Received game state: ")
 		// fmt.Println("DEBUG: Game state: ", gameState)
 		log.Print("player :: !> DEBUG: Game state: gameState.Hand: ")
 		gameState.Hand.Print()
 		log.Print("player :: !> DEBUG: Game state: gameState.Table: ")
 		gameState.Table.Print()
-		log.Print("player :: !> DEBUG: Game state: gameState.Turn: ", gameState.Turn)
-		// fmt.Println("Table")
-		// gameState.Table.Print()
-		// fmt.Println("Hand")
-		// gameState.Hand.Print()
+		log.Print("player :: !> DEBUG: Turn state: turnState.HasDrawedCard: ", gameState.Turn.HasDrawedCard)
+		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", gameState.Turn.HasPlayedMeld)
+		log.Print("player :: !> DEBUG: Turn state: turnState.PlayerUUID: ", gameState.Turn.PlayerUUID)
 
 		// Stop any existing display
 		select {
@@ -116,8 +120,8 @@ func main() {
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != playerUUID
 
-		fmt.Println("This player uuid: ", playerUUID)
-		fmt.Println("Turn player uuid: ", gameState.Turn.PlayerUUID)
+		// fmt.Println("This player uuid: ", playerUUID)
+		// fmt.Println("Turn player uuid: ", gameState.Turn.PlayerUUID)
 
 		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
 
@@ -126,11 +130,14 @@ func main() {
 		var play engine.Play
 		if freeze {
 			play = renderer.DisplayScreen(stopDisplay)
+
 		} else {
 			play = renderer.UserInputDisplay(stopDisplay)
 		}
 
-		// fmt.Println("Play: ", play)
+		fmt.Println("Play: ", play)
+		fmt.Println("Play type: ", play.GetName())
+		fmt.Println("Play cards: ", play.GetCards())
 
 		// Send the play back to server immediately
 		if play != nil {

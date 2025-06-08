@@ -76,8 +76,8 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", turnState.HasPlayedMeld)
 		log.Print("player :: !> DEBUG: Turn state: turnState.PlayerUUID: ", turnState.PlayerUUID)
 
-		outputProvider.SendState(table, *p.Hand, *turnState)
-		play := inputProvider.GetPlay(table, *p.Hand, p.Name, *turnState)
+		outputProvider.SendState(*table, *p.Hand, *turnState)
+		play := inputProvider.GetPlay(*turnState)
 		log.Print("player :: !> Got Play: ", play.GetName())
 		if IsValid(turnState, play, outputProvider) {
 			log.Print("player :: !> Play is valid")
