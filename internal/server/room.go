@@ -124,15 +124,14 @@ func (g *GameRoom) StartGame() {
 				break
 			}
 		}
-
 		if matchingClient == nil {
 			g.logger.Errorf("No matching client found for player %s (UUID: %s)",
 				player.Name, player.UUID)
 			return
 		}
 
-		inputProvider[i] = NewWebsocketInputProvider(matchingClient.Conn, g.logger)
-		outputProvider[i] = NewWebsocketOutputProvider(matchingClient.Conn, *g.logger)
+		inputProvider[i] = engine.NewWebsocketInputProvider(matchingClient.Conn, g.logger)
+		outputProvider[i] = engine.NewWebsocketOutputProvider(matchingClient.Conn, *g.logger)
 
 		gameState := GameStateMessage{
 			Table: g.Game.Table,

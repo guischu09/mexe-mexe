@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8888", "http service address")
+var addr = flag.String("addr", "192.168.15.6:8888", "http service address")
 
 func main() {
 
@@ -87,6 +87,7 @@ func main() {
 
 	// Game started! Handle the request-response pattern
 	for {
+		fmt.Println("DEBUG: beggining of loop.")
 		// Wait for game state from server
 		var gameState server.GameStateMessage
 		err := ws.ReadJSON(&gameState)
@@ -94,12 +95,17 @@ func main() {
 			log.Printf("error reading game state: %v", err)
 			return
 		}
-
-		fmt.Println("Received game state: ")
-		fmt.Println("Table")
-		gameState.Table.Print()
-		fmt.Println("Hand")
+		fmt.Println("DEBUG: Received game state: ")
+		// fmt.Println("DEBUG: Game state: ", gameState)
+		log.Print("player :: !> DEBUG: Game state: gameState.Hand: ")
 		gameState.Hand.Print()
+		log.Print("player :: !> DEBUG: Game state: gameState.Table: ")
+		gameState.Table.Print()
+		log.Print("player :: !> DEBUG: Game state: gameState.Turn: ", gameState.Turn)
+		// fmt.Println("Table")
+		// gameState.Table.Print()
+		// fmt.Println("Hand")
+		// gameState.Hand.Print()
 
 		// Stop any existing display
 		select {
@@ -115,7 +121,7 @@ func main() {
 
 		renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
 
-		fmt.Println("Freeze: ", freeze)
+		// fmt.Println("Freeze: ", freeze)
 
 		var play engine.Play
 		if freeze {
@@ -124,7 +130,7 @@ func main() {
 			play = renderer.UserInputDisplay(stopDisplay)
 		}
 
-		fmt.Println("Play: ", play)
+		// fmt.Println("Play: ", play)
 
 		// Send the play back to server immediately
 		if play != nil {

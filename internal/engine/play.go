@@ -149,6 +149,7 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 		return
 
 	case QUIT:
+		log.Print("player :: !> Quitting")
 		return
 
 	default:
