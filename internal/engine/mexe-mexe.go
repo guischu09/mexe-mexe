@@ -129,8 +129,9 @@ func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvi
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
 			g.ValidadeGame()
-			g.logger.Infof("Hand: %v\r\n", g.Players[i].Hand)
 			player := &g.Players[i]
+			g.logger.Infof("Name: %v\r\n", player.Name)
+			g.logger.Infof("Hand: %v\r\n", player.Hand)
 			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider[i])
 
 			switch availablePlay {

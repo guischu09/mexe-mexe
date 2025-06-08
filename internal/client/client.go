@@ -127,16 +127,24 @@ func (c *Client) ReceiveGameState() server.GameStateMessage {
 	log.Print("DEBUG: Turn state: turnState.PlayerUUID: ", gameState.Turn.PlayerUUID)
 	return gameState
 }
+func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage) {
+	for {
+		gameState := c.ReceiveGameState()
+		gameStateChan <- gameState
+	}
+}
 
 func (c *Client) StartGame(stopDisplay chan bool) {
+	gameStateChan := make(chan server.GameStateMessage, 1)
+	go c.ReadFromWebSocket(gameStateChan)
 
 	for {
-		fmt.Println("DEBUG: beggining of loop.")
+		fmt.Println("DEBUG: beginning of loop.")
 
 		// Wait to receive game state from the server
-		gameState := c.ReceiveGameState()
+		gameState := <-gameStateChan
 
-		// Stop any existing display
+		// Send stop signal to break any existing display
 		select {
 		case stopDisplay <- true:
 		default:
@@ -144,42 +152,38 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != c.UUID
-		// fmt.Println("This player uuid: ", clientUUID)
-		// fmt.Println("Turn player uuid: ", gameState.Turn.PlayerUUID)
-		// fmt.Println("Freeze: ", freeze)
 
 		c.Renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
 
 		var play engine.Play
 		if freeze {
 			play = c.Renderer.DisplayScreen(stopDisplay)
-
 		} else {
 			play = c.Renderer.UserInputDisplay(stopDisplay)
+		}
+
+		// If DisplayScreen returned nil due to stopDisplay signal, just continue the loop
+		if play == nil {
+			continue
 		}
 
 		fmt.Println("Play: ", play)
 		fmt.Println("Play type: ", play.GetName())
 		fmt.Println("Play cards: ", play.GetCards())
 
-		// Send the play back to server immediately
-		if play != nil {
-			var gamePlayMsg server.GamePlayMessage
-			gamePlayMsg.Play = play
+		var gamePlayMsg server.GamePlayMessage
+		gamePlayMsg.Play = play
 
-			err := c.Conn.WriteJSON(&gamePlayMsg)
-			if err != nil {
-				log.Printf("error writing to websocket: %v", err)
-				return
-			}
+		err := c.Conn.WriteJSON(&gamePlayMsg)
+		if err != nil {
+			log.Printf("error writing to websocket: %v", err)
+			return
+		}
 
-			// If it's a quit play, break the loop
-			if play.GetName() == engine.QUIT {
-				break
-			}
+		if play.GetName() == engine.QUIT {
+			break
 		}
 	}
-
 }
 
 // Close closes the websocket connection
