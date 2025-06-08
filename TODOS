@@ -4,3 +4,8 @@
 - Create mechanism to check if a websocket connection is still alive.
 
 - Make client send GameOptions to the server when starting a game.
+
+
+if a meld is played by player 1 to the table. player 2 should emdiatelly see the cards. Similarly, if player 1 draws a card, player 2 should immediately be notified.
+
+There is a bug on changing turns. If player 1 draws a card and ends turn, player 2 is not notified of the change because it keeps stuck on display screen.
