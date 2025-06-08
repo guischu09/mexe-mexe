@@ -110,27 +110,31 @@ func (c *Client) SetRenderer(renderer *engine.Rederer) {
 	c.Renderer = renderer
 }
 
+func (c *Client) ReceiveGameState() server.GameStateMessage {
+	var gameState server.GameStateMessage
+	err := c.Conn.ReadJSON(&gameState)
+	if err != nil {
+		log.Fatalf("error reading game state: %v", err)
+	}
+
+	fmt.Println("DEBUG: Received game state: ")
+	log.Print("DEBUG: Game state: gameState.Hand: ")
+	gameState.Hand.Print()
+	log.Print("DEBUG: Game state: gameState.Table: ")
+	gameState.Table.Print()
+	log.Print("DEBUG: Turn state: turnState.HasDrawedCard: ", gameState.Turn.HasDrawedCard)
+	log.Print("DEBUG: Turn state: turnState.HasPlayedMeld: ", gameState.Turn.HasPlayedMeld)
+	log.Print("DEBUG: Turn state: turnState.PlayerUUID: ", gameState.Turn.PlayerUUID)
+	return gameState
+}
+
 func (c *Client) StartGame(stopDisplay chan bool) {
 
 	for {
 		fmt.Println("DEBUG: beggining of loop.")
-		// Wait for game state from server
-		var gameState server.GameStateMessage
-		err := c.Conn.ReadJSON(&gameState)
-		if err != nil {
-			log.Printf("error reading game state: %v", err)
-			return
-		}
 
-		fmt.Println("DEBUG: Received game state: ")
-		// fmt.Println("DEBUG: Game state: ", gameState)
-		log.Print("player :: !> DEBUG: Game state: gameState.Hand: ")
-		gameState.Hand.Print()
-		log.Print("player :: !> DEBUG: Game state: gameState.Table: ")
-		gameState.Table.Print()
-		log.Print("player :: !> DEBUG: Turn state: turnState.HasDrawedCard: ", gameState.Turn.HasDrawedCard)
-		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", gameState.Turn.HasPlayedMeld)
-		log.Print("player :: !> DEBUG: Turn state: turnState.PlayerUUID: ", gameState.Turn.PlayerUUID)
+		// Wait to receive game state from the server
+		gameState := c.ReceiveGameState()
 
 		// Stop any existing display
 		select {
@@ -142,10 +146,9 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 		freeze := gameState.Turn.PlayerUUID != c.UUID
 		// fmt.Println("This player uuid: ", clientUUID)
 		// fmt.Println("Turn player uuid: ", gameState.Turn.PlayerUUID)
+		// fmt.Println("Freeze: ", freeze)
 
 		c.Renderer.UpdateRenderer(gameState.Table, gameState.Hand, gameState.Turn)
-
-		// fmt.Println("Freeze: ", freeze)
 
 		var play engine.Play
 		if freeze {

@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"mexemexe/internal/service"
 
@@ -52,7 +51,7 @@ func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
 func (w WebsocketOutputProvider) SendState(table Table, hand Hand, turnState TurnState) {
 
 	fmt.Println("Sending state to player")
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 	gameState := GameStateMessageOut{
 		Table: table,
 		Hand:  hand,

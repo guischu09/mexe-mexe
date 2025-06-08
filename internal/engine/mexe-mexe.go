@@ -136,24 +136,19 @@ func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvi
 			switch availablePlay {
 			case QUIT:
 				g.logger.Infof("Player %s quits", player.Name)
-				// outputProvider[i].Write("message", "Game Over!")
 				return false
 
 			case END_TURN:
 				g.logger.Infof("Player %s ends turn", player.Name)
-				// outputProvider[i].Write("message", "Player "+player.Name+" ends turn")
 
 			case DRAW_CARD:
 				g.logger.Infof("Player %s drawed a card", player.Name)
-				// outputProvider[i].Write("message", "Player "+player.Name+" drawed a card")
 
 			case PLAY_MELD:
 				g.logger.Infof("Player %s played a meld", player.Name)
-				// outputProvider[i].Write("message", "Player "+player.Name+" played a meld")
 			}
 			if player.Hand.Size == 0 {
 				g.logger.Infof("Player %s wins!", player.Name)
-				// outputProvider[i].Write("message", "Player "+player.Name+" wins!")
 				return true
 			}
 		}

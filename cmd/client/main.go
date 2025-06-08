@@ -11,7 +11,7 @@ import (
 
 func SigtermListener(signalChan chan os.Signal, stopChan chan struct{}) {
 	sig := <-signalChan
-	fmt.Printf("Received termination signal (%v), shutting down computer vision service.", sig)
+	fmt.Printf("Received termination signal (%v), shutting down mexe-mexe game.", sig)
 
 	select {
 	case <-stopChan:
