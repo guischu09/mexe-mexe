@@ -29,8 +29,11 @@ func NewTurnState(playerUUID string) *TurnState {
 	}
 }
 
-func (t *TurnState) Update(hasDrawedCard bool, hasPlayedMeld bool) {
+func (t *TurnState) UpdateDrawedCard(hasDrawedCard bool) {
 	t.HasDrawedCard = hasDrawedCard
+}
+
+func (t *TurnState) UpdatePlayedMeld(hasPlayedMeld bool) {
 	t.HasPlayedMeld = hasPlayedMeld
 }
 
@@ -73,7 +76,7 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 	// When the game starts, the server sends the initial state for each player, so that the client
 	// can know what to display. We only send another state to the client when the state changes.
 	// This is to prevent the client from displaying the same state multiple times.
-
+	// outputProvider.SendState(*table, *p.Hand, *turnState)
 	for {
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasDrawedCard: ", turnState.HasDrawedCard)
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", turnState.HasPlayedMeld)
@@ -88,13 +91,13 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 			MakePlay(play, deck, table, p, outputProvider)
 
 			if play.GetName() == DRAW_CARD {
-				turnState.Update(true, false)
+				turnState.UpdateDrawedCard(true)
 				outputProvider.SendState(*table, *p.Hand, *turnState)
 				continue
 			}
 
 			if play.GetName() == PLAY_MELD {
-				turnState.Update(false, true)
+				turnState.UpdatePlayedMeld(true)
 				outputProvider.SendState(*table, *p.Hand, *turnState)
 				continue
 			}
