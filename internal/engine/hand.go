@@ -5,6 +5,11 @@ import (
 	"slices"
 )
 
+var EMPTY_HAND = Hand{
+	Cards: []*Card{},
+	Size:  0,
+}
+
 type Hand struct {
 	Cards []*Card
 	Size  int

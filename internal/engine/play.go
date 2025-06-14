@@ -123,7 +123,7 @@ func IsValid(turnState *TurnState, play Play, outputProvider OutputProvider) boo
 	}
 }
 
-func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvider OutputProvider) {
+func MakePlay(play Play, deck *Deck, table *Table, player *Player) {
 
 	switch play.GetName() {
 
@@ -146,7 +146,6 @@ func MakePlay(play Play, deck *Deck, table *Table, player *Player, outputProvide
 
 	case END_TURN:
 		log.Print("player :: !> Passing turn")
-		outputProvider.Write("message", "Passing turn")
 		return
 
 	case QUIT:

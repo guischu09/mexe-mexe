@@ -117,14 +117,14 @@ func (c *Client) ReceiveGameState() server.GameStateMessage {
 		log.Fatalf("error reading game state: %v", err)
 	}
 
-	fmt.Println("DEBUG: Received game state: ")
-	log.Print("DEBUG: Game state: gameState.Hand: ")
+	fmt.Println("DEBUG: Received game state: \n\r")
+	log.Print("DEBUG: Game state: gameState.Hand: \n\r")
 	gameState.Hand.Print()
-	log.Print("DEBUG: Game state: gameState.Table: ")
+	log.Print("DEBUG: Game state: gameState.Table: \n\r")
 	gameState.Table.Print()
-	log.Print("DEBUG: Turn state: turnState.HasDrawedCard: ", gameState.Turn.HasDrawedCard)
-	log.Print("DEBUG: Turn state: turnState.HasPlayedMeld: ", gameState.Turn.HasPlayedMeld)
-	log.Print("DEBUG: Turn state: turnState.PlayerUUID: ", gameState.Turn.PlayerUUID)
+	log.Print("DEBUG: Turn state: turnState.HasDrawedCard: \n\r", gameState.Turn.HasDrawedCard)
+	log.Print("DEBUG: Turn state: turnState.HasPlayedMeld: \n\r", gameState.Turn.HasPlayedMeld)
+	log.Print("DEBUG: Turn state: turnState.PlayerUUID: \n\r", gameState.Turn.PlayerUUID)
 	return gameState
 }
 func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage) {
@@ -139,7 +139,7 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 	go c.ReadFromWebSocket(gameStateChan)
 
 	for {
-		fmt.Println("DEBUG: beginning of loop.")
+		fmt.Println("DEBUG: beginning of loop. \n\r")
 
 		// Wait to receive game state from the server
 		gameState := <-gameStateChan
@@ -167,9 +167,9 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 			continue
 		}
 
-		fmt.Println("Play: ", play)
-		fmt.Println("Play type: ", play.GetName())
-		fmt.Println("Play cards: ", play.GetCards())
+		fmt.Println("DEBUG: Play: \n\r", play)
+		fmt.Println("DEBUG: Play type: \n\r", play.GetName())
+		fmt.Println("DEBUG: Play cards: \n\r", play.GetCards())
 
 		var gamePlayMsg server.GamePlayMessage
 		gamePlayMsg.Play = play

@@ -130,9 +130,7 @@ func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvi
 		for i := range g.Players {
 			g.ValidadeGame()
 			player := &g.Players[i]
-			g.logger.Infof("Name: %v\r\n", player.Name)
-			g.logger.Infof("Hand: %v\r\n", player.Hand)
-			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider[i])
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider)
 
 			switch availablePlay {
 			case QUIT:
@@ -186,4 +184,15 @@ func (g *Game) ValidadeGame() {
 		return
 	}
 	log.Fatalf("ERROR: Card leek. Current total cards: %d, expected: %d", totalCardsGame, g.Config.TotalCards)
+}
+
+// SendStateToPlayers sends the current state to all players via outputProviders
+func SendStateToPlayers(outputProviders []OutputProvider, table Table, Hand Hand, turnState TurnState) {
+	for _, outputProvider := range outputProviders {
+		if turnState.PlayerUUID == outputProvider.GetUUID() {
+			outputProvider.SendState(table, Hand, turnState)
+		} else {
+			outputProvider.SendState(table, EMPTY_HAND, turnState)
+		}
+	}
 }

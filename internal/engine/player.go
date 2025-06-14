@@ -19,6 +19,7 @@ type TurnState struct {
 	HasDrawedCard bool
 	HasPlayedMeld bool
 	PlayerUUID    string
+	GameEnded     bool
 }
 
 func NewTurnState(playerUUID string) *TurnState {
@@ -26,6 +27,7 @@ func NewTurnState(playerUUID string) *TurnState {
 		HasDrawedCard: false,
 		HasPlayedMeld: false,
 		PlayerUUID:    playerUUID,
+		GameEnded:     false,
 	}
 }
 
@@ -35,6 +37,10 @@ func (t *TurnState) UpdateDrawedCard(hasDrawedCard bool) {
 
 func (t *TurnState) UpdatePlayedMeld(hasPlayedMeld bool) {
 	t.HasPlayedMeld = hasPlayedMeld
+}
+
+func (t *TurnState) UpdateGameEnded(hasGameEnded bool) {
+	t.GameEnded = hasGameEnded
 }
 
 func (t *TurnState) Print() {
@@ -58,6 +64,17 @@ func NewPlayer(name string, hand *Hand, uuid string, points uint32) Player {
 	}
 }
 
+func GetOutputProviderFromUUID(uuid string, outputProviders []OutputProvider) OutputProvider {
+
+	for _, outputProvider := range outputProviders {
+		if outputProvider.GetUUID() == uuid {
+			return outputProvider
+		}
+	}
+	log.Panicf("ERROR: Output provider not found for UUID: %s", uuid)
+	return EMPTY_WS_OUTPUT_PROVIDER
+}
+
 func (p *Player) Print() {
 	fmt.Println(p.Name)
 }
@@ -70,13 +87,16 @@ func (p *Player) UpdatePoints(points uint32) {
 	p.Points = points
 }
 
-func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProvider OutputProvider) AvailablePlay {
+func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProviders []OutputProvider) AvailablePlay {
 
 	turnState := NewTurnState(p.UUID)
 	// When the game starts, the server sends the initial state for each player, so that the client
 	// can know what to display. We only send another state to the client when the state changes.
 	// This is to prevent the client from displaying the same state multiple times.
 	// outputProvider.SendState(*table, *p.Hand, *turnState)
+
+	thisPlayerOutputProvider := GetOutputProviderFromUUID(p.UUID, outputProviders)
+
 	for {
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasDrawedCard: ", turnState.HasDrawedCard)
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", turnState.HasPlayedMeld)
@@ -85,27 +105,30 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 		play := inputProvider.GetPlay(*turnState)
 
 		log.Print("player :: !> Got Play: ", play.GetName())
-		if IsValid(turnState, play, outputProvider) {
+		if IsValid(turnState, play, thisPlayerOutputProvider) {
 			log.Print("player :: !> Play is valid")
 
-			MakePlay(play, deck, table, p, outputProvider)
+			MakePlay(play, deck, table, p)
 
 			if play.GetName() == DRAW_CARD {
 				turnState.UpdateDrawedCard(true)
-				outputProvider.SendState(*table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
 				continue
 			}
 
 			if play.GetName() == PLAY_MELD {
 				turnState.UpdatePlayedMeld(true)
-				outputProvider.SendState(*table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
 				continue
 			}
-
-			return play.GetName()
+			if play.GetName() == QUIT {
+				turnState.UpdateGameEnded(true)
+				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				return play.GetName()
+			}
+			log.Panic("Unreachable state reached!")
 
 		} else {
-			log.Print("player :: !> Play is valid")
 			fmt.Println("Invalid play! Please try again.")
 		}
 	}

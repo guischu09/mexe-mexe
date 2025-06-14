@@ -1,9 +1,6 @@
 WebSocket Game Server Architecture Summary
 Project Context
 Building a turn-based card game server in Go with WebSocket connections. The architecture emphasizes clean separation of concerns with independent, swappable components.
-Core Design Philosophy
-
-Game engine is transport-agnostic: Uses InputProvider and OutputProvider interfaces so it can work with WebSockets, CLI, AI, etc.
 Independent components: Each part (server, game engine, connection handling) has clear responsibilities
 Interface-driven: Game engine works with abstractions, not concrete implementations
 
@@ -22,7 +19,6 @@ Server creates:
 ├── WebsocketInputProvider for each client  
 ├── WebsocketOutputProvider for each client
 └── Calls room.StartGame() → game.Start() in goroutine
-Key Issue Resolved: Server must stop reading from WebSocket after game starts to avoid conflicts with game engine's input providers.
 3. Game Phase (Engine Responsibility)
 Game Engine Loop:
 ├── For each player's turn:
@@ -31,20 +27,6 @@ Game Engine Loop:
 │   ├── Execute play with MakePlay()
 │   └── Update game state
 └── Continue until win/quit condition
-Technical Challenge Solved: JSON Interface Serialization
-Problem: Cannot directly serialize/deserialize Go interfaces (engine.Play) over JSON.
-Solution: Type-based discrimination pattern:
-go// Play structs include type field
-type DrawCardPlay struct {
-    Type string `json:"type"` // "DRAW_CARD"
-}
-
-// Server detects type, creates concrete Play
-switch detector.Type {
-case "DRAW_CARD":
-    return engine.NewDrawCardPlay()
-// ...
-}
 Key Components
 Game Engine Interface
 gotype InputProvider interface {

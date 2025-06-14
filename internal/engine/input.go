@@ -28,12 +28,14 @@ type InputProvider interface {
 // }
 
 type WebsocketInputProvider struct {
+	uuid   string
 	conn   *websocket.Conn
 	logger *service.GameLogger
 }
 
-func NewWebsocketInputProvider(conn *websocket.Conn, logger *service.GameLogger) *WebsocketInputProvider {
+func NewWebsocketInputProvider(conn *websocket.Conn, uuid string, logger *service.GameLogger) *WebsocketInputProvider {
 	return &WebsocketInputProvider{
+		uuid:   uuid,
 		conn:   conn,
 		logger: logger,
 	}

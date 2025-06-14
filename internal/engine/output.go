@@ -9,6 +9,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var EMPTY_WS_OUTPUT_PROVIDER = WebsocketOutputProvider{
+	uuid:   "",
+	conn:   nil,
+	logger: nil,
+}
+
 type GameStateMessageOut struct {
 	Table Table     `json:"table"`
 	Hand  Hand      `json:"hand"`
@@ -20,6 +26,7 @@ type MessageType string
 type OutputProvider interface {
 	Write(messageType string, data interface{})
 	SendState(table Table, hand Hand, turnState TurnState)
+	GetUUID() string
 }
 
 type TerminalOutputProvider struct{}
@@ -33,15 +40,21 @@ func (t TerminalOutputProvider) Write(messageType string, data interface{}) {
 }
 
 type WebsocketOutputProvider struct {
+	uuid   string
 	conn   *websocket.Conn
 	logger *service.GameLogger
 }
 
-func NewWebsocketOutputProvider(conn *websocket.Conn, logger *service.GameLogger) WebsocketOutputProvider {
+func NewWebsocketOutputProvider(conn *websocket.Conn, uuid string, logger *service.GameLogger) WebsocketOutputProvider {
 	return WebsocketOutputProvider{
+		uuid:   uuid,
 		conn:   conn,
 		logger: logger,
 	}
+}
+
+func (w WebsocketOutputProvider) GetUUID() string {
+	return w.uuid
 }
 
 func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
@@ -50,7 +63,7 @@ func (w WebsocketOutputProvider) Write(messageType string, data interface{}) {
 
 func (w WebsocketOutputProvider) SendState(table Table, hand Hand, turnState TurnState) {
 
-	fmt.Println("Sending state to player")
+	log.Printf("DEBUG: SendState - Sending state to player %s", w.uuid)
 	// time.Sleep(5 * time.Second)
 	gameState := GameStateMessageOut{
 		Table: table,

@@ -290,16 +290,6 @@ func (s *Server) HandleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// After handling start game, just wait for the connection to close
 	s.logger.Infof("Client %s setup complete, waiting for natural disconnection", newClient.UUID)
-
-	// Just wait for connection to close, don't read messages
-	// for {
-	// 	ws.SetReadDeadline(time.Now().Add(30 * time.Second))
-	// 	_, _, err := ws.ReadMessage()
-	// 	if err != nil {
-	// 		s.logger.Infof("Client connection ended: %v", err)
-	// 		break
-	// 	}
-	// }
 	select {}
 }
 
