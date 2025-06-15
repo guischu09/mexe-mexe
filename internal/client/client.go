@@ -130,9 +130,9 @@ func (c *Client) ReceiveGameState() server.GameStateMessage {
 func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage, stopChan chan bool) {
 	for {
 		gameState := c.ReceiveGameState()
-		log.Print("DEBUG: Received game state. \n\r")
+		// log.Print("DEBUG: Received game state. \n\r")
 		gameStateChan <- gameState
-		log.Print("DEBUG: sent game state to channel. \n\r")
+		// log.Print("DEBUG: sent game state to channel. \n\r")
 		stopChan <- true
 	}
 }
