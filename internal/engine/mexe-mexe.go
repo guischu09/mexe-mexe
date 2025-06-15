@@ -17,19 +17,6 @@ import (
 // Mexe-mexe allows you to play with the cards (melds) on the table as if they were your own cards.
 // And as long as the changes you do on the table are valid (melds are of a sequence or book), you can play them as if they were your own cards.
 
-// Mecanicas:
-
-// Draw a card = d
-// Selecionar uma meld = m + #carta
-
-// Jogar meld selecionada = P (ação ira printar as cartas)
-// Jogar meld confirmar
-
-// sugestao Mi: m1 m2 m3, m11
-// sugestao do Gui: segurar m +  #carta. Para selecionar carta numero 11, pressionar 1 duas vezes rapidamente
-
-// quando houver a mesa, usuario podera selecionar a mão "ctrl + h" ou a mesa "ctrl + t"
-
 const INITIAL_POINTS uint32 = 0
 const NUM_PLAYERS = 2
 const NUM_CARDS = 21

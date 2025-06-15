@@ -1,31 +1,31 @@
 package main
 
-import "mexemexe/internal/engine"
-
-//TODO: Implement a mechanic to control validation of played melds and melds remaining on the table.
-// TODO: Implement validation of Books
+import (
+	"fmt"
+	"mexemexe/internal/engine"
+	"mexemexe/internal/service"
+)
 
 func main() {
 
 	gameConfig := engine.GameConfig{
 		Seed:              engine.UNIQUE_SHUFFLE_SEED,
-		PlayersName:       []string{"Guilherme", "Michele"},
+		PlayersName:       []string{"Gui", "Mi"},
 		NumPlayers:        2,
 		NumCards:          21,
 		RandomPlayerOrder: true,
 		TotalCards:        uint8(engine.TOTAL_DECK_SIZE),
 	}
-
-	inputProvider := []engine.InputProvider{
-		engine.TerminalInputProvider{},
-		engine.TerminalInputProvider{},
-	}
-	outputProvider := []engine.OutputProvider{
-		engine.TerminalOutputProvider{},
-		engine.TerminalOutputProvider{},
-	}
-	game := engine.NewGame(&gameConfig)
-	if !game.Start(inputProvider, outputProvider) {
-		game.Close()
-	}
+	// TODO:
+	// inputProvider := []engine.InputProvider{
+	// 	engine.TerminalInputProvider{},
+	// 	engine.TerminalInputProvider{},
+	// }
+	// outputProvider := []engine.OutputProvider{
+	// 	engine.TerminalOutputProvider{},
+	// 	engine.TerminalOutputProvider{},
+	// }
+	logger := service.NewLogger(0, "test")
+	game := engine.NewGame(&gameConfig, logger)
+	fmt.Println(game)
 }

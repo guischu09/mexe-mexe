@@ -22,8 +22,10 @@ func SigtermListener(signalChan chan os.Signal, stopChan chan struct{}) {
 
 func main() {
 
+	serverIP := "192.168.15.6"
+
 	// Instantiate a client
-	client := client.NewClient("192.168.15.6", "8888")
+	client := client.NewClient(serverIP, "8888")
 	defer client.Close()
 
 	// Set username
