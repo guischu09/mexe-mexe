@@ -116,7 +116,6 @@ func (g *GameRoom) StartGame() {
 	firstPlayer := g.Game.Players[0]
 
 	for i, player := range g.Game.Players {
-		// Find the matching client for this player
 		var matchingClient *Client
 		for _, client := range g.Clients {
 			if player.UUID == client.UUID {
@@ -133,22 +132,8 @@ func (g *GameRoom) StartGame() {
 		inputProvider[i] = engine.NewWebsocketInputProvider(matchingClient.Conn, player.UUID, g.logger)
 		outputProvider[i] = engine.NewWebsocketOutputProvider(matchingClient.Conn, player.UUID, g.logger)
 
-		gameState := GameStateMessage{
-			Table: g.Game.Table,
-			Hand:  *player.Hand,
-			Turn:  *engine.NewTurnState(firstPlayer.UUID),
-		}
-
-		err := matchingClient.Conn.WriteJSON(gameState)
-		if err != nil {
-			g.logger.Errorf("error writing game state to client %s: %v",
-				matchingClient.UUID, err)
-			return
-		}
-		g.logger.Debugf("Sent game state to player %s (client %s)",
-			player.Name, matchingClient.UUID)
 	}
 
 	// Start the game engine in a separate goroutine
-	go g.Game.Start(inputProvider, outputProvider)
+	go g.Game.Start(inputProvider, outputProvider, firstPlayer.UUID)
 }

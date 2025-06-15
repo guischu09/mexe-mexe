@@ -88,7 +88,7 @@ func NewGame(config *GameConfig, logger *service.GameLogger) *Game {
 
 	for i, uuid := range config.PlayersUUID {
 		newHand := NewHandFromDeck(deck, config.NumCards)
-		players[i] = NewPlayer(config.PlayersName[i], newHand, uuid, INITIAL_POINTS)
+		players[i] = NewPlayer(config.PlayersName[i], *newHand, uuid, INITIAL_POINTS)
 	}
 
 	if config.RandomPlayerOrder {
@@ -119,18 +119,22 @@ func (g *Game) ShufflePlayers() {
 	})
 }
 
-func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvider) bool {
+func (g *Game) Start(inputProvider []InputProvider, outputProvider []OutputProvider, firstPlayerUUID string) bool {
 
 	g.logger.Infof("Game started!\r\n")
 	g.logger.Infof("Players: %v\r\n", len(g.Players))
 	g.logger.Infof("Deck: %v\r\n", g.Deck.Size)
 	g.logger.Infof("Table: %v\r\n", g.Table.Size)
+	g.logger.Infof("First player UUID: %s\r\n", firstPlayerUUID)
 
 	for g.Deck.Size > 0 {
 		for i := range g.Players {
+
 			g.ValidadeGame()
 			player := &g.Players[i]
-			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider)
+			SendStateToPlayers(outputProvider, g.Table, g.Players, *NewTurnState(player.UUID))
+			g.logger.Infof("Player %s turn.\r\n", player.Name)
+			availablePlay := player.PlayTurn(g.Deck, &g.Table, inputProvider[i], outputProvider, g.Players)
 
 			switch availablePlay {
 			case QUIT:
@@ -187,12 +191,8 @@ func (g *Game) ValidadeGame() {
 }
 
 // SendStateToPlayers sends the current state to all players via outputProviders
-func SendStateToPlayers(outputProviders []OutputProvider, table Table, hand Hand, turnState TurnState) {
-	for _, outputProvider := range outputProviders {
-		if turnState.PlayerUUID == outputProvider.GetUUID() {
-			outputProvider.SendState(table, hand, turnState)
-		} else {
-			outputProvider.SendState(table, EMPTY_HAND, turnState)
-		}
+func SendStateToPlayers(outputProviders []OutputProvider, table Table, players []Player, turnState TurnState) {
+	for i, outputProvider := range outputProviders {
+		outputProvider.SendState(table, players[i].Hand, turnState)
 	}
 }

@@ -117,14 +117,14 @@ func (c *Client) ReceiveGameState() server.GameStateMessage {
 		log.Fatalf("error reading game state: %v", err)
 	}
 
-	fmt.Println("DEBUG: Received game state: \n\r")
-	log.Print("DEBUG: Game state: gameState.Hand: \n\r")
-	gameState.Hand.Print()
-	log.Print("DEBUG: Game state: gameState.Table: \n\r")
-	gameState.Table.Print()
-	log.Print("DEBUG: Turn state: turnState.HasDrawedCard: \n\r", gameState.Turn.HasDrawedCard)
-	log.Print("DEBUG: Turn state: turnState.HasPlayedMeld: \n\r", gameState.Turn.HasPlayedMeld)
-	log.Print("DEBUG: Turn state: turnState.PlayerUUID: \n\r", gameState.Turn.PlayerUUID)
+	// fmt.Println("DEBUG: Received game state: \n\r")
+	// log.Print("DEBUG: Game state: gameState.Hand: \n\r")
+	// gameState.Hand.Print()
+	// log.Print("DEBUG: Game state: gameState.Table: \n\r")
+	// gameState.Table.Print()
+	// log.Print("DEBUG: Turn state: turnState.HasDrawedCard: \n\r", gameState.Turn.HasDrawedCard)
+	// log.Print("DEBUG: Turn state: turnState.HasPlayedMeld: \n\r", gameState.Turn.HasPlayedMeld)
+	// log.Print("DEBUG: Turn state: turnState.PlayerUUID: \n\r", gameState.Turn.PlayerUUID)
 	return gameState
 }
 func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage, stopChan chan bool) {
@@ -143,7 +143,7 @@ func (c *Client) StartGame(stopSignal chan bool) {
 	go c.ReadFromWebSocket(gameStateChan, stopChan)
 
 	for {
-		fmt.Println("DEBUG: beginning of loop. \n\r")
+		// fmt.Println("DEBUG: beginning of loop. \n\r")
 
 		// Wait to receive game state from the server
 		gameState := <-gameStateChan
@@ -170,9 +170,9 @@ func (c *Client) StartGame(stopSignal chan bool) {
 			continue
 		}
 
-		fmt.Println("DEBUG: Play: \n\r", play)
-		fmt.Println("DEBUG: Play type: \n\r", play.GetName())
-		fmt.Println("DEBUG: Play cards: \n\r", play.GetCards())
+		// fmt.Println("DEBUG: Play: \n\r", play)
+		// fmt.Println("DEBUG: Play type: \n\r", play.GetName())
+		// fmt.Println("DEBUG: Play cards: \n\r", play.GetCards())
 
 		var gamePlayMsg server.GamePlayMessage
 		gamePlayMsg.Play = play

@@ -50,12 +50,12 @@ func (t *TurnState) Print() {
 
 type Player struct {
 	Name   string
-	Hand   *Hand
+	Hand   Hand
 	Points uint32
 	UUID   string
 }
 
-func NewPlayer(name string, hand *Hand, uuid string, points uint32) Player {
+func NewPlayer(name string, hand Hand, uuid string, points uint32) Player {
 	return Player{
 		Name:   name,
 		Hand:   hand,
@@ -87,14 +87,9 @@ func (p *Player) UpdatePoints(points uint32) {
 	p.Points = points
 }
 
-func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProviders []OutputProvider) AvailablePlay {
+func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider, outputProviders []OutputProvider, players []Player) AvailablePlay {
 
 	turnState := NewTurnState(p.UUID)
-	// When the game starts, the server sends the initial state for each player, so that the client
-	// can know what to display. We only send another state to the client when the state changes.
-	// This is to prevent the client from displaying the same state multiple times.
-	// outputProvider.SendState(*table, *p.Hand, *turnState)
-
 	thisPlayerOutputProvider := GetOutputProviderFromUUID(p.UUID, outputProviders)
 
 	for {
@@ -114,23 +109,23 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 
 			if play.GetName() == DRAW_CARD {
 				turnState.UpdateDrawedCard(true)
-				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, players, *turnState)
 				continue
 			}
 
 			if play.GetName() == PLAY_MELD {
 				turnState.UpdatePlayedMeld(true)
-				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, players, *turnState)
 				continue
 			}
 			if play.GetName() == QUIT {
 				turnState.UpdateGameEnded(true)
-				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, players, *turnState)
 				return play.GetName()
 			}
 
 			if play.GetName() == END_TURN {
-				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				SendStateToPlayers(outputProviders, *table, players, *turnState)
 				return play.GetName()
 			}
 
