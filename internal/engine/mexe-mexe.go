@@ -187,10 +187,10 @@ func (g *Game) ValidadeGame() {
 }
 
 // SendStateToPlayers sends the current state to all players via outputProviders
-func SendStateToPlayers(outputProviders []OutputProvider, table Table, Hand Hand, turnState TurnState) {
+func SendStateToPlayers(outputProviders []OutputProvider, table Table, hand Hand, turnState TurnState) {
 	for _, outputProvider := range outputProviders {
 		if turnState.PlayerUUID == outputProvider.GetUUID() {
-			outputProvider.SendState(table, Hand, turnState)
+			outputProvider.SendState(table, hand, turnState)
 		} else {
 			outputProvider.SendState(table, EMPTY_HAND, turnState)
 		}

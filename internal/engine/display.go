@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-type Rederer struct {
+type Renderer struct {
 	Width         int
 	Table         Table
 	Hand          Hand
@@ -24,8 +24,8 @@ type Rederer struct {
 	freeze        bool
 }
 
-func NewRenderer(playerName string) *Rederer {
-	return &Rederer{
+func NewRenderer(playerName string) *Renderer {
+	return &Renderer{
 		Width:         0,
 		Table:         Table{},
 		Hand:          Hand{},
@@ -38,7 +38,7 @@ func NewRenderer(playerName string) *Rederer {
 	}
 }
 
-func (r *Rederer) UpdateRenderer(table Table, hand Hand, turnState TurnState) {
+func (r *Renderer) UpdateRenderer(table Table, hand Hand, turnState TurnState) {
 	r.Table = table
 	r.Hand = hand
 	r.turnState = turnState
@@ -52,7 +52,7 @@ func (r *Rederer) UpdateRenderer(table Table, hand Hand, turnState TurnState) {
 	}
 }
 
-func (r *Rederer) CreateHorizontalLine(char string) string {
+func (r *Renderer) CreateHorizontalLine(char string) string {
 	line := ""
 	for i := 0; i < r.Width; i++ {
 		line += char
@@ -60,7 +60,7 @@ func (r *Rederer) CreateHorizontalLine(char string) string {
 	return line
 }
 
-func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
+func (r *Renderer) PrintInstructions(screenBuffer *strings.Builder) {
 
 	titleText := "INSTRUCTIONS"
 	padding := max((r.Width-len(titleText))/2, 0)
@@ -77,7 +77,7 @@ func (r *Rederer) PrintInstructions(screenBuffer *strings.Builder) {
 	screenBuffer.WriteString(fmt.Sprintf("%s\r\n", headerLine[:r.Width]))
 }
 
-func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
+func (r *Renderer) UserInputDisplay(stopSignal chan bool) Play {
 
 	fmt.Print("\033[H\033[2J")
 
@@ -230,7 +230,7 @@ func (r *Rederer) UserInputDisplay(stopSignal chan bool) Play {
 	}
 }
 
-func (r *Rederer) RenderInputScreen(allCards []*Card, statusMessage string) {
+func (r *Renderer) RenderInputScreen(allCards []*Card, statusMessage string) {
 
 	var screenBuffer strings.Builder
 
@@ -357,8 +357,7 @@ func DisplayCardsToString(cards []Card, highlightPos int) string {
 	return output.String()
 }
 
-func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
-
+func (r *Renderer) DisplayScreen(stopSignal chan bool) Play {
 	// clear screen
 	fmt.Print("\033[H\033[2J")
 
@@ -367,7 +366,11 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 	if err != nil {
 		log.Fatalf("Error setting up terminal: %s\r\n", err)
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() {
+		term.Restore(int(os.Stdin.Fd()), oldState)
+		// Clear screen when exiting
+		fmt.Print("\033[H\033[2J")
+	}()
 
 	// Get terminal dimensions
 	width, _, err := term.GetSize(int(os.Stdin.Fd()))
@@ -377,24 +380,23 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 	}
 	r.Width = width
 
-	// Combine cards from hand and table for navigation (same as UserInputDisplay)
+	// Combine cards from hand and table for navigation
 	allCards := slices.Clone(r.Hand.Cards)
 	tableCards := slices.Clone(r.Table.Cards)
 	allCards = append(allCards, tableCards...)
 
-	// Don't reset currentPos if we have cards - let player continue navigating
+	// Don't reset currentPos if we have cards
 	if len(allCards) > 0 && r.currentPos >= len(allCards) {
 		r.currentPos = len(allCards) - 1
 	}
 
 	statusMessage := ""
 
+	// Create a channel for input reading
+	inputChan := make(chan []byte, 1)
+	inputActive := false
+
 	for {
-		select {
-		case <-stopSignal:
-			return nil
-		default:
-		}
 		r.RenderScreen(statusMessage)
 		if statusMessage != "" {
 			time.Sleep(1 * time.Second)
@@ -402,49 +404,74 @@ func (r *Rederer) DisplayScreen(stopSignal chan bool) Play {
 			continue
 		}
 
-		buffer := make([]byte, 3)
-		n, err := os.Stdin.Read(buffer)
-		if err != nil {
-			fmt.Printf("Error reading input: %s\r\n", err)
-			continue
+		// Only start reading input if not already active
+		if !inputActive {
+			inputActive = true
+			go func() {
+				buffer := make([]byte, 3)
+				n, err := os.Stdin.Read(buffer)
+				if err != nil {
+					inputActive = false
+					return
+				}
+				select {
+				case inputChan <- buffer[:n]:
+				default:
+					// Channel full, input ignored
+				}
+				inputActive = false
+			}()
 		}
 
-		if n == 1 {
-			switch buffer[0] {
-			case 'q':
-				fmt.Print("\033[H\033[2J")
-				fmt.Printf("Are you sure you want to quit? (y/n)\r\n")
-				_, err = os.Stdin.Read(buffer[:1])
-				if err != nil {
-					continue
-				}
-				if strings.ToLower(string(buffer[0])) == "y" || strings.ToLower(string(buffer[0])) == "q" {
-					return NewQuitPlay()
-				} else {
+		// Wait for either input or stop signal
+		select {
+		case <-stopSignal:
+			// Clean exit - terminal will be restored by defer
+			return nil
+		case buffer := <-inputChan:
+			n := len(buffer)
+
+			if n == 1 {
+				switch buffer[0] {
+				case 'q':
 					fmt.Print("\033[H\033[2J")
+					fmt.Printf("Are you sure you want to quit? (y/n)\r\n")
+					confirmBuffer := make([]byte, 1)
+					_, err = os.Stdin.Read(confirmBuffer)
+					if err != nil {
+						continue
+					}
+					if strings.ToLower(string(confirmBuffer[0])) == "y" || strings.ToLower(string(confirmBuffer[0])) == "q" {
+						return NewQuitPlay()
+					} else {
+						fmt.Print("\033[H\033[2J")
+						continue
+					}
+				default:
+					statusMessage = "You cannot make a play now. Wait for your turn."
 					continue
 				}
-			default:
-				statusMessage = "You cannot make a play now. Wait for your turn."
-				continue
-			}
-		} else if n == 3 && buffer[0] == 27 && buffer[1] == 91 {
-			// Handle arrow keys for navigation (same as UserInputDisplay)
-			switch buffer[2] {
-			case 68: // Left arrow
-				if r.currentPos > 0 {
-					r.currentPos--
-				}
-			case 67: // Right arrow
-				if r.currentPos < len(allCards)-1 {
-					r.currentPos++
+			} else if n == 3 && buffer[0] == 27 && buffer[1] == 91 {
+				// Handle arrow keys for navigation
+				switch buffer[2] {
+				case 68: // Left arrow
+					if r.currentPos > 0 {
+						r.currentPos--
+					}
+				case 67: // Right arrow
+					if r.currentPos < len(allCards)-1 {
+						r.currentPos++
+					}
 				}
 			}
+		case <-time.After(100 * time.Millisecond):
+			// Small timeout to check for stop signal periodically
+			continue
 		}
 	}
 }
 
-func (r *Rederer) RenderScreen(statusMessage string) {
+func (r *Renderer) RenderScreen(statusMessage string) {
 
 	var screenBuffer strings.Builder
 

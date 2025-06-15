@@ -15,7 +15,7 @@ import (
 type Client struct {
 	ServerIP   string
 	ServerPort string
-	Renderer   *engine.Rederer
+	Renderer   *engine.Renderer
 	Username   string
 	UUID       string
 	Conn       *websocket.Conn
@@ -106,7 +106,7 @@ func (c *Client) ReceiveGameStartedMessage() {
 	fmt.Println(gameStartedMsg.Message)
 }
 
-func (c *Client) SetRenderer(renderer *engine.Rederer) {
+func (c *Client) SetRenderer(renderer *engine.Renderer) {
 	c.Renderer = renderer
 }
 
@@ -137,9 +137,9 @@ func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage, s
 	}
 }
 
-func (c *Client) StartGame(stopDisplay chan bool) {
+func (c *Client) StartGame(stopSignal chan bool) {
 	gameStateChan := make(chan server.GameStateMessage, 1)
-	stopChan := make(chan bool)
+	stopChan := make(chan bool, 1)
 	go c.ReadFromWebSocket(gameStateChan, stopChan)
 
 	for {
@@ -147,13 +147,11 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 
 		// Wait to receive game state from the server
 		gameState := <-gameStateChan
-		stopDisplay <- stopChan
 
-		// Send stop signal to break any existing display
-		// select {
-		// case stopDisplay <- true:
-		// default:
-		// }
+		select {
+		case <-stopChan:
+		default:
+		}
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != c.UUID
@@ -162,9 +160,9 @@ func (c *Client) StartGame(stopDisplay chan bool) {
 
 		var play engine.Play
 		if freeze {
-			play = c.Renderer.DisplayScreen(stopDisplay)
+			play = c.Renderer.DisplayScreen(stopChan)
 		} else {
-			play = c.Renderer.UserInputDisplay(stopDisplay)
+			play = c.Renderer.UserInputDisplay(stopChan)
 		}
 
 		// If DisplayScreen returned nil due to stopDisplay signal, just continue the loop
