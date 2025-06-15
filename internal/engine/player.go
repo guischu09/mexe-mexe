@@ -101,6 +101,8 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasDrawedCard: ", turnState.HasDrawedCard)
 		log.Print("player :: !> DEBUG: Turn state: turnState.HasPlayedMeld: ", turnState.HasPlayedMeld)
 		log.Print("player :: !> DEBUG: Turn state: turnState.PlayerUUID: ", turnState.PlayerUUID)
+		log.Print("player :: !> DEBUG: Table: ")
+		table.Print()
 
 		play := inputProvider.GetPlay(*turnState)
 
@@ -126,6 +128,12 @@ func (p *Player) PlayTurn(deck *Deck, table *Table, inputProvider InputProvider,
 				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
 				return play.GetName()
 			}
+
+			if play.GetName() == END_TURN {
+				SendStateToPlayers(outputProviders, *table, *p.Hand, *turnState)
+				return play.GetName()
+			}
+
 			log.Panic("Unreachable state reached!")
 
 		} else {

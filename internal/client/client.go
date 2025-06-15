@@ -127,28 +127,33 @@ func (c *Client) ReceiveGameState() server.GameStateMessage {
 	log.Print("DEBUG: Turn state: turnState.PlayerUUID: \n\r", gameState.Turn.PlayerUUID)
 	return gameState
 }
-func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage) {
+func (c *Client) ReadFromWebSocket(gameStateChan chan server.GameStateMessage, stopChan chan bool) {
 	for {
 		gameState := c.ReceiveGameState()
+		log.Print("DEBUG: Received game state. \n\r")
 		gameStateChan <- gameState
+		log.Print("DEBUG: sent game state to channel. \n\r")
+		stopChan <- true
 	}
 }
 
 func (c *Client) StartGame(stopDisplay chan bool) {
 	gameStateChan := make(chan server.GameStateMessage, 1)
-	go c.ReadFromWebSocket(gameStateChan)
+	stopChan := make(chan bool)
+	go c.ReadFromWebSocket(gameStateChan, stopChan)
 
 	for {
 		fmt.Println("DEBUG: beginning of loop. \n\r")
 
 		// Wait to receive game state from the server
 		gameState := <-gameStateChan
+		stopDisplay <- stopChan
 
 		// Send stop signal to break any existing display
-		select {
-		case stopDisplay <- true:
-		default:
-		}
+		// select {
+		// case stopDisplay <- true:
+		// default:
+		// }
 
 		// Determine if it's the player's turn
 		freeze := gameState.Turn.PlayerUUID != c.UUID
