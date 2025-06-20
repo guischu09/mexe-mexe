@@ -30,7 +30,6 @@ func (q QuitPlay) GetName() AvailablePlay {
 	return QUIT
 }
 func (p QuitPlay) GetCards() []Card {
-	log.Println("No cards used for this play")
 	return nil
 }
 
@@ -47,7 +46,6 @@ func (p EndTurnPlay) GetName() AvailablePlay {
 }
 
 func (p EndTurnPlay) GetCards() []Card {
-	log.Println("No cards used for this play")
 	return nil
 }
 

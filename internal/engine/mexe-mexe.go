@@ -179,7 +179,13 @@ func (g *Game) ValidadeGame() {
 
 // SendStateToPlayers sends the current state to all players via outputProviders
 func SendStateToPlayers(outputProviders []OutputProvider, table Table, players []Player, turnState TurnState) {
+
+	if len(players) != len(outputProviders) {
+		log.Fatal("ERROR: Number of players and output providers must be equal!")
+	}
+
 	for i, outputProvider := range outputProviders {
+		SortHandBySuitAndValue(&players[i].Hand)
 		outputProvider.SendState(table, players[i].Hand, turnState)
 	}
 }

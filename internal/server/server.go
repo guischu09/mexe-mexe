@@ -5,6 +5,7 @@ import (
 	"mexemexe/internal/service"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -13,7 +14,7 @@ import (
 )
 
 // SERVER_CAPACITY defines the maximum number of clients that can connect to the server
-const SERVER_CAPACITY = 30
+const SERVER_CAPACITY = 20000
 
 // Upgrader defines the websocket upgrader
 var upgrader = websocket.Upgrader{
@@ -22,13 +23,11 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 
-		// Allow your actual domains
 		allowedOrigins := []string{
 			"https://mexe-mexe.online",
 			"https://www.mexe-mexe.online",
 		}
 
-		// Allow localhost for development
 		if strings.Contains(origin, "localhost") {
 			return true
 		}
@@ -191,7 +190,14 @@ func (s *Server) IsAtMaximumCapacity() bool {
 
 // AuthenticateUser checks if the user is authenticated
 func (s *Server) AuthenticateUser(username string, ws *websocket.Conn) bool {
-	return true
+	if len(strings.TrimSpace(username)) < 2 {
+		return false
+	}
+	if len(username) > 30 {
+		return false
+	}
+	matched, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", username)
+	return matched
 }
 
 // parseRemoteAddr parses the remote address of a websocket connection into an IP and port
