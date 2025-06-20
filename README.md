@@ -3,6 +3,7 @@
 A real-time multiplayer card game built in Go with WebSocket connections. Players compete to be the first to empty their hand by playing melds (sequences or books) and manipulating cards on the table through the unique "mexe-mexe" mechanic.
 
 Check it out: https://www.mexe-mexe.online/
+It is FREE!
 
 ## Game Rules
 
@@ -133,4 +134,8 @@ Game Engine Loop:
 └── └── service/        # Logger
 
 ```
+## Disclosure:
+Frontend (https://www.mexe-mexe.online/) and this README were vibe coded.
 
+## Contact:
+Guilherme Schu: guischu09@gmail.com
