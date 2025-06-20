@@ -1,7 +1,8 @@
 # Mexe-mexe 🃁 🂡 🃋 - Multiplayer Card Game 
 
-
 A real-time multiplayer card game built in Go with WebSocket connections. Players compete to be the first to empty their hand by playing melds (sequences or books) and manipulating cards on the table through the unique "mexe-mexe" mechanic.
+
+Check it out: https://www.mexe-mexe.online/
 
 ## Game Rules
 
@@ -59,9 +60,12 @@ The unique feature of this game! Once any meld is played on the table (by any pl
 - User input handling
 - Game state display
 
-### Key Design Patterns
-
-**Interface-Driven Design**: The game engine works with abstractions (`InputProvider`, `OutputProvider`) rather than concrete WebSocket implementations, making it easily testable and adaptable.
+### Core principals:
+**Input-Output**: The game engine works with abstractions (`InputProvider`, `OutputProvider`) rather than concrete WebSocket implementations. Ideal for
+alternative implementations (e.g. TerminalInputProvider).
+- **Concurrent Design**: Each game runs in its own goroutine.
+- **Real-time Communication**: WebSocket connections provide instant updates.
+- **State Management**: Centralized game state with atomic operations.
 
 **Provider Pattern**: 
 - `WebsocketInputProvider`: Handles player input via WebSocket
@@ -70,7 +74,7 @@ The unique feature of this game! Once any meld is played on the table (by any pl
 ## Building and Running
 
 ### Prerequisites
-- Go 1.19 or higher
+- Go 1.24.2
 - Terminal environment (Linux/macOS recommended - Windows not tested)
 
 ### Server
@@ -84,11 +88,7 @@ go build cmd/server/main.go
 go build cmd/client/main.go
 ./main
 ```
-
-**Note**: The client uses terminal-based UI and has not been tested on Windows.
-
 ## Architecture Flow
-
 ### 1. Connection & Lobby Phase
 ```
 Client → WebSocket → Server.HandleConnections()
@@ -134,11 +134,3 @@ Game Engine Loop:
 
 ```
 
-
-## Highlights
-
-- **Concurrent Design**: Each game runs in its own goroutine
-- **Real-time Communication**: WebSocket connections provide instant updates
-- **State Management**: Centralized game state with atomic operations
-- **Input Validation**: Robust meld and game rule validation
-- **Clean Interfaces**: Abstract providers enable flexible I/O handling

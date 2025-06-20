@@ -5,6 +5,7 @@ import (
 	"mexemexe/internal/service"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -18,6 +19,27 @@ const SERVER_CAPACITY = 30
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+
+		// Allow your actual domains
+		allowedOrigins := []string{
+			"https://mexe-mexe.online",
+			"https://www.mexe-mexe.online",
+		}
+
+		// Allow localhost for development
+		if strings.Contains(origin, "localhost") {
+			return true
+		}
+
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+		return false
+	},
 }
 
 // GenerateUniqueID generates a unique ID
