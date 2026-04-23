@@ -23,6 +23,10 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 
+		if origin == "" {
+			return true
+		}
+
 		allowedOrigins := []string{
 			"https://mexe-mexe.online",
 			"https://www.mexe-mexe.online",
